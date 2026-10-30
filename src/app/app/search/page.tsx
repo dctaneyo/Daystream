@@ -6,7 +6,6 @@ import { recentOpenTasks, searchThings } from "@/lib/activity";
 import { formatShortDate } from "@/lib/date";
 
 export const metadata = { title: "Search" };
-
 export default async function SearchPage({
   searchParams,
 }: {

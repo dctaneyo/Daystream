@@ -4,7 +4,6 @@ import { auth } from "@/auth";
 import { PinSignup } from "@/components/PinSignup";
 
 export const metadata = { title: "Create account" };
-
 export default async function SignupPage() {
   const session = await auth();
   if (session?.user?.id) redirect("/app");

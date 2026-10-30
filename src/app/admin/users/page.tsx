@@ -4,7 +4,6 @@ import { AdminUserRow } from "@/components/admin/AdminUserRow";
 import { CreateUserForm } from "@/components/admin/CreateUserForm";
 
 export const metadata = { title: "Admin · Users" };
-
 export default async function AdminUsersPage({
   searchParams,
 }: {

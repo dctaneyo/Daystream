@@ -2,7 +2,6 @@ import { listWorkspacesForAdmin } from "@/lib/users";
 import { deleteWorkspaceAction } from "@/actions/admin";
 
 export const metadata = { title: "Admin · Workspaces" };
-
 export default async function AdminWorkspacesPage() {
   const workspaces = await listWorkspacesForAdmin();
 

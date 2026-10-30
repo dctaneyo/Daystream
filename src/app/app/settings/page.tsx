@@ -7,7 +7,6 @@ import { ChangePinForm } from "@/components/ChangePinForm";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
 
 export const metadata = { title: "Settings" };
-
 export default async function SettingsPage() {
   const session = await auth();
   const userId = session?.user?.id;

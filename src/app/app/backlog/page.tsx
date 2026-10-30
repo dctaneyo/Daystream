@@ -5,7 +5,6 @@ import { backlogRoom } from "@/lib/rooms";
 import { DailyCanvas } from "@/components/DailyCanvas";
 
 export const metadata = { title: "Backlog" };
-
 export default async function BacklogPage() {
   const session = await auth();
   const userId = session?.user?.id;
