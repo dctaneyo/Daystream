@@ -176,7 +176,7 @@ npm run dev:db
 
 # terminal 2
 npm run db:migrate
-npm run seed:dev   # optional: test@daystream.dev / password123
+npm run seed:dev   # optional: creates 100001 / 123456 (admin)
 npm run dev
 ```
 
@@ -213,7 +213,7 @@ then set `DATABASE_URL` and run `npm run db:migrate && npm run dev`.
    - `AUTH_URL` = `https://<your-domain>` and `AUTH_TRUST_HOST` = `true`
    - `APP_TIMEZONE` = your timezone (optional but recommended)
 4. Deploy. `railway.json` sets:
-   - build: `npm ci && npm run build`
+   - build: `npm install && npm run build`
    - start: `npm run start` → `node server/index.mjs`
    - health check: `/api/health`
 5. Generate a domain and open it. Migrations run automatically at boot (idempotent, tracked in
@@ -237,7 +237,7 @@ node scripts/smoke.mjs # end-to-end: auth, token, WS sync, projection, search
 ```
 
 `scripts/smoke.mjs` needs a running server plus `DATABASE_URL` and `AUTH_SECRET`, and a seeded
-account (`npm run seed:dev`). It checks 14 things, including that a foreign workspace is refused
+account (`npm run seed:dev`). It checks 23 things, including that a foreign workspace is refused
 and that a bad collab token is rejected. `scripts/ws-debug.mjs <workspaceId> [date]` is a manual
 realtime probe that logs every provider event.
 

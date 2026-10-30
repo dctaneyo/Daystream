@@ -10,6 +10,7 @@
     "dev": "node server/index.mjs --dev",
     "dev:db": "node scripts/dev-db.mjs",
     "seed:dev": "node scripts/seed-dev.mjs",
+    "prebuild": "node scripts/gen-icons.mjs",
     "build": "next build",
     "start": "node server/index.mjs",
     "typecheck": "tsc --noEmit",
