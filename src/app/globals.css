@@ -1,0 +1,189 @@
+@import "tailwindcss";
+
+/* Class-based dark mode so the user can override the device preference. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  /* Written by <KeyboardInset /> from visualViewport. */
+  --keyboard-inset: 0px;
+
+  /* Light theme (used when the device is light or the user picks light). */
+  --canvas: #fbfbfd;
+  --panel: #ffffff;
+  --raised: #f1f3f8;
+  --hover: #e9edf4;
+  --edge: #e2e6ee;
+  --ink: #16191f;
+  --muted: #5c6472;
+  --accent: #4c56d8;
+  --accent-ink: #ffffff;
+  --accent-soft: #e6e8fb;
+  --scroll-thumb: #c9cfda;
+}
+
+.dark {
+  --canvas: #08090b;
+  --panel: #0e1014;
+  --raised: #14171d;
+  --hover: #1b2029;
+  --edge: #22262e;
+  --ink: #e9ebf1;
+  --muted: #98a1b1;
+  --accent: #7c8cff;
+  --accent-ink: #0a0b10;
+  --accent-soft: #2a2f52;
+  --scroll-thumb: #2a2f38;
+}
+
+@theme inline {
+  --color-canvas: var(--canvas);
+  --color-panel: var(--panel);
+  --color-raised: var(--raised);
+  --color-hover: var(--hover);
+  --color-edge: var(--edge);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-soft: var(--accent-soft);
+  --font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+html,
+body {
+  min-height: 100%;
+}
+
+body {
+  background-color: var(--color-canvas);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overscroll-behavior-y: none;
+}
+
+::selection {
+  background: color-mix(in oklab, var(--color-accent) 35%, transparent);
+}
+
+.ds-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scroll-thumb) transparent;
+}
+
+.ds-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.ds-scroll::-webkit-scrollbar-thumb {
+  background: var(--scroll-thumb);
+  border-radius: 999px;
+}
+
+.ds-input {
+  width: 100%;
+  border-radius: 0.75rem;
+  border: 1px solid var(--color-edge);
+  background: var(--color-raised);
+  padding: 0.65rem 0.85rem;
+  /* 16px minimum: anything smaller makes iOS Safari zoom on focus. */
+  font-size: 1rem;
+  color: var(--color-ink);
+  outline: none;
+}
+
+.ds-input::placeholder {
+  color: var(--color-muted);
+}
+
+.ds-input:focus {
+  border-color: color-mix(in oklab, var(--color-accent) 60%, var(--color-edge));
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-accent) 18%, transparent);
+}
+
+.ds-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--color-edge);
+  background: var(--color-raised);
+  padding: 0.6rem 0.9rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-ink);
+  transition: background 120ms ease, border-color 120ms ease, opacity 120ms ease;
+}
+
+.ds-button:hover {
+  background: var(--color-hover);
+  border-color: color-mix(in oklab, var(--color-edge) 60%, var(--color-muted));
+}
+
+.ds-button-primary {
+  background: var(--color-accent);
+  border-color: transparent;
+  color: var(--color-accent-ink);
+  font-weight: 600;
+}
+
+.ds-button-primary:hover {
+  background: color-mix(in oklab, var(--color-accent) 88%, var(--color-ink));
+  border-color: transparent;
+}
+
+.ds-textarea {
+  field-sizing: content;
+  min-height: 1.9rem;
+  max-height: 40dvh;
+  overflow-y: auto;
+  resize: none;
+  background: transparent;
+  width: 100%;
+  outline: none;
+  color: var(--color-ink);
+  /* 16px minimum: prevents the iOS focus zoom while typing. */
+  font-size: 1rem;
+  line-height: 1.55;
+}
+
+.ds-textarea::placeholder {
+  color: var(--color-muted);
+}
+
+.safe-bottom {
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px));
+}
+
+/* Content stays reachable when the composer moves up with the keyboard. */
+.ds-stream {
+  scroll-padding-bottom: 10rem;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* The keyboard itself provides the gap once it is open. */
+html.kb-open .safe-bottom {
+  padding-bottom: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

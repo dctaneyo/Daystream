@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Daystream">
+  <rect width="512" height="512" rx="112" fill="#0b0c10"/>
+  <g fill="#7c8cff">
+    <rect x="144" y="184" width="224" height="32" rx="16"/>
+    <rect x="144" y="240" width="160" height="32" rx="16" opacity="0.82"/>
+    <rect x="144" y="296" width="112" height="32" rx="16" opacity="0.62"/>
+  </g>
+</svg>
