@@ -20,3 +20,9 @@
   Migrations run at boot; do not add a separate release step.
 - Do not enable `output: "standalone"` — it conflicts with the custom server.
 - `db/migrations/*.sql` are append-only; add a new numbered file instead of editing an applied one.
+
+## Pushing
+
+- Target: `git push origin HEAD:main` (the remote is `https://github.com/dctaneyo/Daystream.git`).
+- The sandbox needs credentials for that: a fine-grained PAT with **Contents: read & write** stored
+  as a project secret named `GITHUB_TOKEN`. Use a one-off credential helper and never echo the value.
