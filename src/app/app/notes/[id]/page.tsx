@@ -18,8 +18,8 @@ export default async function NotePage({ params }: { params: Promise<{ id: strin
   const members = await listNoteMembers(note.id);
 
   return (
-    <div className="xl:grid xl:grid-cols-[1fr_312px]">
-      <main className="flex min-h-0 flex-col">
+    <div className="flex min-h-0 flex-1 flex-col xl:flex-row">
+      <main className="flex min-h-0 flex-1 flex-col">
         <DailyCanvas
           workspaceId={note.workspaceId}
           workspaceName={note.sharedWithMe ? "Shared note" : note.workspaceName}
@@ -34,7 +34,7 @@ export default async function NotePage({ params }: { params: Promise<{ id: strin
         />
       </main>
 
-      <aside className="border-t border-edge bg-panel/40 p-4 xl:border-l xl:border-t-0">
+      <aside className="min-h-0 w-full shrink-0 overflow-y-auto border-t border-edge bg-panel/40 p-4 xl:w-[312px] xl:border-l xl:border-t-0">
         <NoteSharePanel
           noteId={note.id}
           title={note.title}

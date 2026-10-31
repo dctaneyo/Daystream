@@ -30,8 +30,8 @@ export default async function DayPage({
   const cells = calendarGrid(month);
 
   return (
-    <div className="xl:grid xl:grid-cols-[1fr_312px]">
-      <main className="flex min-h-0 flex-col">
+    <div className="flex min-h-0 flex-1 flex-col xl:flex-row">
+      <main className="flex min-h-0 flex-1 flex-col">
         <DailyCanvas
           workspaceId={workspace.id}
           workspaceName={workspace.name}
@@ -46,13 +46,15 @@ export default async function DayPage({
         />
       </main>
 
-      <aside className="hidden border-l border-edge bg-panel/40 p-4 xl:block">
+      <aside className="hidden min-h-0 w-[312px] shrink-0 overflow-y-auto border-l border-edge bg-panel/40 p-4 xl:block">
         <CalendarPanel
           month={month}
           activeDate={date}
           cells={cells}
           heat={heat}
           workspaceName={workspace.name}
+          workspaceId={workspace.id}
+          userId={userId}
         />
       </aside>
     </div>

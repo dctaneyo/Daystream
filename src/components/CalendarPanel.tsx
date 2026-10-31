@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { monthLabel, shiftMonth, weekdayInitials, type CalendarCell } from "@/lib/date";
+import { backlogRoom } from "@/lib/rooms";
+import { Scratchpad } from "@/components/Scratchpad";
 
 export function CalendarPanel({
   month,
@@ -7,12 +9,16 @@ export function CalendarPanel({
   cells,
   heat,
   workspaceName,
+  workspaceId,
+  userId,
 }: {
   month: string;
   activeDate: string;
   cells: CalendarCell[];
   heat: Record<string, number>;
   workspaceName: string;
+  workspaceId: string;
+  userId: string;
 }) {
   const peak = Math.max(1, ...Object.values(heat));
 
@@ -83,16 +89,7 @@ export function CalendarPanel({
         </div>
       </div>
 
-      <div className="rounded-xl border border-edge bg-panel p-3">
-        <p className="text-xs font-medium text-ink">Scratchpad</p>
-        <p className="mt-1 text-[11px] leading-relaxed text-muted">
-          Park a thought on the Backlog when it isn&apos;t tied to a day yet, then move it into the
-          stream when it becomes real.
-        </p>
-        <Link href="/app/backlog" className="mt-2 inline-block text-[11px] text-accent hover:underline">
-          Open backlog →
-        </Link>
-      </div>
+      <Scratchpad room={backlogRoom(workspaceId)} userId={userId} />
     </div>
   );
 }
