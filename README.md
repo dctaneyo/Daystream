@@ -53,7 +53,12 @@ heat-maps, search and the 7-day roll-up are therefore plain indexed SQL.
 ```
 <workspaceId>:2026-10-30   one day
 <workspaceId>:backlog      undated items parked for later
+note:<noteId>              a standalone note holding any number of Things
 ```
+
+Notes are their own room so they can be shared one at a time: `note_members` grants access to a
+single note without exposing the owner's days, backlog or other notes. A collab token names the
+exact room it was minted for, so a token can never be replayed against a sibling note.
 
 **Auth on the socket**: the browser calls `GET /api/collab-token?room=…`, which checks the
 session *and* workspace membership, then mints a short-lived HS256 JWT. Hocuspocus verifies that
@@ -88,10 +93,13 @@ admins; non-admins are redirected to `/app`.
 
 - **Overview** — accounts, admins, suspended users, workspaces, Things, documents, plus recent
   accounts and admin activity.
-- **Users** — search by ID/name/email, create accounts (auto 6-digit ID, optional or generated PIN,
-  one-time display), reset PIN, suspend/activate, grant/revoke admin, delete.
-- **Workspaces** — inventory with owner, member/Thing/document counts and deletion.
-- **Audit log** — every admin action with actor, target and JSON details.
+- **Users** — search by ID/name/email, create accounts (random 6-digit ID or one you choose,
+  optional or generated PIN, one-time display), **change an existing user's ID**, reset PIN,
+  suspend/activate, grant/revoke admin, delete.
+- **Audit log** — every admin action with actor, target and JSON details, including ID changes.
+
+There is deliberately no workspace management here: a workspace has exactly one member, so
+"administering" one would just mean reaching into somebody's private data.
 
 Guard rails: you cannot suspend, demote or delete yourself, and the last active admin cannot be
 removed. All actions are logged to `admin_audit_log`.
@@ -144,15 +152,19 @@ sidebar, the landing page, or Settings → Appearance.
   delete, move to tomorrow, move to backlog.
 - Day navigation (prev/next/Today) plus horizontal swipe on touch devices.
 - Calendar sidebar with per-day activity heat dots and month paging.
-- Backlog canvas at `/app/backlog` for undated items.
+- Backlog canvas at `/app/backlog` for undated items, plus a sidebar scratchpad on the day view
+  that writes into the same backlog room instead of just linking to it.
+- Notes at `/app/notes`: standalone documents that hold any number of Things, shareable one note at
+  a time by the other person's 6-digit ID.
 - Search at `/app/search` (SQL `ILIKE` over the projection) and a 7-day open-task roll-up.
-- Realtime: multi-tab/multi-device sync, presence avatars, and an honest status pill
-  (Connected / Reconnecting… changes saved locally / Working offline).
+- Realtime: multi-tab/multi-device sync, presence avatars, remote carets drawn at each
+  collaborator's character offset inside a Thing, and an honest status pill (Connected /
+  Reconnecting… changes saved locally / Working offline).
 - Offline: writes land in IndexedDB first, so the editor keeps working with no server.
 - Installable PWA with standalone display, offline fallback page, and generated icons.
 
-Not built yet: wikilinks/backlinks, reminders with notifications, attachments, team invites,
-calendar integrations, per-block `Y.Text` merging. The schema and room model already leave room
+Not built yet: wikilinks/backlinks, reminders with notifications, attachments, calendar
+integrations, per-block `Y.Text` merging. The schema and room model already leave room
 for all of them.
 
 ---
@@ -237,8 +249,8 @@ node scripts/smoke.mjs # end-to-end: auth, token, WS sync, projection, search
 ```
 
 `scripts/smoke.mjs` needs a running server plus `DATABASE_URL` and `AUTH_SECRET`, and a seeded
-account (`npm run seed:dev`). It checks 23 things, including that a foreign workspace is refused
-and that a bad collab token is rejected. `scripts/ws-debug.mjs <workspaceId> [date]` is a manual
+account (`npm run seed:dev`). It checks 24 things, including that a foreign workspace is refused,
+that a bad collab token is rejected, and that a token minted for one room cannot open another. `scripts/ws-debug.mjs <workspaceId> [date]` is a manual
 realtime probe that logs every provider event.
 
 ---
@@ -250,10 +262,10 @@ db/migrations/        SQL migrations (idempotent, applied at boot)
 server/index.mjs      Node server: Next handler + WS upgrade at /collab
 server/collab.mjs     Hocuspocus config: auth, load/store, SQL projection
 server/migrate.mjs    Migration runner (also `npm run db:migrate`)
-src/app/              App Router: landing, login/signup (numpad), /app/[date], backlog, search, settings
-src/app/admin/        separate admin console (overview, users, workspaces, audit)
-src/components/       DailyCanvas (Yjs), BlockItem, CalendarPanel, StatusPill, …
-src/lib/              db, blocks, rooms, date, activity, workspaces, collab-token
+src/app/              App Router: landing, login/signup (numpad), /app/[date], backlog, notes, search
+src/app/admin/        separate admin console (overview, users, audit)
+src/components/       DailyCanvas (Yjs), BlockItem, PeerCaret, Scratchpad, CalendarPanel, …
+src/lib/              db, blocks, rooms, notes, presence, date, activity, workspaces, collab-token
 scripts/              dev-db (PGlite), seed-dev, smoke, ws-debug, gen-icons
 public/               manifest, service worker, generated icons
 ```
