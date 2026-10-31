@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { Block } from "@/lib/blocks";
 import { FormatBar } from "@/components/FormatBar";
@@ -8,7 +8,9 @@ import { InlineMarkdown } from "@/components/InlineMarkdown";
 
 const MENU_WIDTH = 176;
 const MENU_GAP = 6;
-const MENU_ITEM_HEIGHT = 38;
+const ITEM_HEIGHT = 38;
+
+type MenuPosition = { left: number; top?: number; bottom?: number };
 
 export function BlockItem({
   block,
@@ -33,11 +35,7 @@ export function BlockItem({
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [menuPosition, setMenuPosition] = useState<{
-    left: number;
-    top?: number;
-    bottom?: number;
-  } | null>(null);
+  const [menuPosition, setMenuPosition] = useState<MenuPosition | null>(null);
   const [editing, setEditing] = useState(false);
 
   useEffect(() => {
@@ -49,25 +47,20 @@ export function BlockItem({
   }, [block.content, editing]);
 
   /**
-   * The menu lives in a portal, so the scrolling column and the composer can
-   * never clip it. Measure the trigger and place it there instead.
+   * The menu renders in a portal, so the scrolling column and the composer can
+   * never clip it. Measure the trigger, then place the menu against it.
    */
-  const toggleMenu = () => {
-    if (menuOpen) {
+  const toggleMenu = useCallback(() => {
+    const button = menuButtonRef.current;
+    if (menuOpen || !button) {
       setMenuOpen(false);
       return;
     }
-    const button = menuButtonRef.current;
-    if (!button) return;
 
-    const itemCount = mode === "day" ? 4 : 3;
-    const estimatedHeight = itemCount * MENU_ITEM_HEIGHT + 10;
+    const estimatedHeight = (mode === "day" ? 4 : 3) * ITEM_HEIGHT + 10;
     const rect = button.getBoundingClientRect();
     const width = Math.min(MENU_WIDTH, window.innerWidth - 16);
-    const left = Math.min(
-      Math.max(8, rect.right - width),
-      Math.max(8, window.innerWidth - width - 8),
-    );
+    const left = Math.min(Math.max(8, rect.right - width), window.innerWidth - width - 8);
     const flipUp =
       window.innerHeight - rect.bottom < estimatedHeight + 12 && rect.top > estimatedHeight + 12;
 
@@ -77,7 +70,7 @@ export function BlockItem({
         : { left, top: rect.bottom + MENU_GAP },
     );
     setMenuOpen(true);
-  };
+  }, [menuOpen, mode]);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -93,7 +86,7 @@ export function BlockItem({
       if (event.key === "Escape") setMenuOpen(false);
     };
 
-    // `true` catches scrolling inside the stream, not just the window.
+    // `true` also catches scrolling inside the stream, not just the window.
     window.addEventListener("pointerdown", onPointerDown, true);
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("scroll", close, true);
@@ -112,8 +105,7 @@ export function BlockItem({
       const el = textareaRef.current;
       if (!el) return;
       el.focus();
-      const end = el.value.length;
-      el.setSelectionRange(end, end);
+      el.setSelectionRange(el.value.length, el.value.length);
     });
   };
 
@@ -123,6 +115,17 @@ export function BlockItem({
   };
 
   const isTodo = block.type === "todo" || block.type === "reminder";
+
+  const items: Array<{ label: string; onClick: () => void; danger?: boolean }> = [
+    { label: isTodo ? "Convert to note" : "Convert to task", onClick: onConvert },
+  ];
+  if (mode === "day") items.push({ label: "Move to tomorrow", onClick: () => onMove("tomorrow") });
+  items.push(
+    mode === "backlog"
+      ? { label: "Move to today", onClick: () => onMove("today") }
+      : { label: "Move to backlog", onClick: () => onMove("backlog") },
+  );
+  items.push({ label: "Delete", onClick: onDelete, danger: true });
 
   return (
     <div
@@ -232,51 +235,19 @@ export function BlockItem({
             }}
             className="z-50 overflow-hidden rounded-xl border border-edge bg-panel shadow-xl"
           >
-            <button
-              type="button"
-              role="menuitem"
-              onClick={() => run(onConvert)}
-              className="block w-full px-3 py-2.5 text-left text-xs text-ink hover:bg-raised"
-            >
-              {isTodo ? "Convert to note" : "Convert to task"}
-            </button>
-            {mode === "day" && (
+            {items.map((item) => (
               <button
+                key={item.label}
                 type="button"
                 role="menuitem"
-                onClick={() => run(() => onMove("tomorrow"))}
-                className="block w-full px-3 py-2.5 text-left text-xs text-ink hover:bg-raised"
+                onClick={() => run(item.onClick)}
+                className={`block w-full px-3 py-2.5 text-left text-xs hover:bg-raised ${
+                  item.danger ? "text-red-600 dark:text-red-300" : "text-ink"
+                }`}
               >
-                Move to tomorrow
+                {item.label}
               </button>
-            )}
-            {mode === "backlog" ? (
-              <button
-                type="button"
-                role="menuitem"
-                onClick={() => run(() => onMove("today"))}
-                className="block w-full px-3 py-2.5 text-left text-xs text-ink hover:bg-raised"
-              >
-                Move to today
-              </button>
-            ) : (
-              <button
-                type="button"
-                role="menuitem"
-                onClick={() => run(() => onMove("backlog"))}
-                className="block w-full px-3 py-2.5 text-left text-xs text-ink hover:bg-raised"
-              >
-                Move to backlog
-              </button>
-            )}
-            <button
-              type="button"
-              role="menuitem"
-              onClick={() => run(onDelete)}
-              className="block w-full px-3 py-2.5 text-left text-xs text-red-600 hover:bg-raised dark:text-red-300"
-            >
-              Delete
-            </button>
+            ))}
           </div>,
           document.body,
         )}
