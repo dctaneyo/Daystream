@@ -19,8 +19,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const today = todayISO();
 
   return (
-    <div className="min-h-dvh lg:grid lg:grid-cols-[236px_1fr]">
-      <aside className="hidden border-r border-edge bg-panel/60 lg:flex lg:flex-col lg:gap-6 lg:p-5">
+    <div className="flex min-h-dvh flex-col lg:grid lg:h-dvh lg:min-h-0 lg:grid-cols-[236px_1fr] lg:overflow-hidden">
+      <aside className="hidden border-r border-edge bg-panel/60 lg:flex lg:min-h-0 lg:flex-col lg:gap-6 lg:overflow-y-auto lg:p-5">
         <Link href={`/app/${today}`} className="flex items-center gap-2.5 px-1 py-1">
           <Brand />
         </Link>
@@ -86,7 +86,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         </div>
       </aside>
 
-      <div className="flex min-h-dvh flex-col">
+      <div className="flex min-h-0 flex-1 flex-col">
         <header className="sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-edge bg-canvas/85 px-4 py-3 backdrop-blur lg:hidden">
           <Link href={`/app/${today}`} className="flex items-center gap-2">
             <Brand compact />
@@ -100,7 +100,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             </Link>
           </nav>
         </header>
-        <div className="flex-1">{children}</div>
+        <div className="flex min-h-0 flex-1 flex-col">{children}</div>
       </div>
     </div>
   );

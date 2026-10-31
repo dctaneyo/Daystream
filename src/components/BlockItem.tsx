@@ -1,9 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { Block } from "@/lib/blocks";
 import { FormatBar } from "@/components/FormatBar";
 import { InlineMarkdown } from "@/components/InlineMarkdown";
+
+const MENU_WIDTH = 176;
+const MENU_GAP = 6;
+const MENU_ITEM_HEIGHT = 38;
 
 export function BlockItem({
   block,
@@ -25,7 +30,14 @@ export function BlockItem({
   onConvert: () => void;
 }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [menuPosition, setMenuPosition] = useState<{
+    left: number;
+    top?: number;
+    bottom?: number;
+  } | null>(null);
   const [editing, setEditing] = useState(false);
 
   useEffect(() => {
@@ -36,6 +48,64 @@ export function BlockItem({
     el.style.height = `${el.scrollHeight}px`;
   }, [block.content, editing]);
 
+  /**
+   * The menu lives in a portal, so the scrolling column and the composer can
+   * never clip it. Measure the trigger and place it there instead.
+   */
+  const toggleMenu = () => {
+    if (menuOpen) {
+      setMenuOpen(false);
+      return;
+    }
+    const button = menuButtonRef.current;
+    if (!button) return;
+
+    const itemCount = mode === "day" ? 4 : 3;
+    const estimatedHeight = itemCount * MENU_ITEM_HEIGHT + 10;
+    const rect = button.getBoundingClientRect();
+    const width = Math.min(MENU_WIDTH, window.innerWidth - 16);
+    const left = Math.min(
+      Math.max(8, rect.right - width),
+      Math.max(8, window.innerWidth - width - 8),
+    );
+    const flipUp =
+      window.innerHeight - rect.bottom < estimatedHeight + 12 && rect.top > estimatedHeight + 12;
+
+    setMenuPosition(
+      flipUp
+        ? { left, bottom: window.innerHeight - rect.top + MENU_GAP }
+        : { left, top: rect.bottom + MENU_GAP },
+    );
+    setMenuOpen(true);
+  };
+
+  useEffect(() => {
+    if (!menuOpen) return;
+
+    const close = () => setMenuOpen(false);
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target as Node | null;
+      if (!target) return;
+      if (menuRef.current?.contains(target) || menuButtonRef.current?.contains(target)) return;
+      setMenuOpen(false);
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMenuOpen(false);
+    };
+
+    // `true` catches scrolling inside the stream, not just the window.
+    window.addEventListener("pointerdown", onPointerDown, true);
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("scroll", close, true);
+    window.addEventListener("resize", close);
+    return () => {
+      window.removeEventListener("pointerdown", onPointerDown, true);
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("resize", close);
+    };
+  }, [menuOpen]);
+
   const beginEditing = () => {
     setEditing(true);
     requestAnimationFrame(() => {
@@ -45,6 +115,11 @@ export function BlockItem({
       const end = el.value.length;
       el.setSelectionRange(end, end);
     });
+  };
+
+  const run = (action: () => void) => {
+    action();
+    setMenuOpen(false);
   };
 
   const isTodo = block.type === "todo" || block.type === "reminder";
@@ -130,34 +205,47 @@ export function BlockItem({
         }`}
       >
         <button
+          ref={menuButtonRef}
           type="button"
-          onClick={() => setMenuOpen((open) => !open)}
+          onClick={toggleMenu}
           aria-label="Thing actions"
           aria-expanded={menuOpen}
+          aria-haspopup="menu"
           className="rounded-md px-1.5 py-1 text-xs text-muted hover:bg-panel hover:text-ink"
         >
           ⋯
         </button>
-        {menuOpen && (
-          <div className="absolute right-0 top-full z-10 mt-1 w-44 overflow-hidden rounded-xl border border-edge bg-panel shadow-xl">
+      </div>
+
+      {menuOpen &&
+        menuPosition &&
+        createPortal(
+          <div
+            ref={menuRef}
+            role="menu"
+            style={{
+              position: "fixed",
+              left: menuPosition.left,
+              top: menuPosition.top,
+              bottom: menuPosition.bottom,
+              width: Math.min(MENU_WIDTH, window.innerWidth - 16),
+            }}
+            className="z-50 overflow-hidden rounded-xl border border-edge bg-panel shadow-xl"
+          >
             <button
               type="button"
-              onClick={() => {
-                onConvert();
-                setMenuOpen(false);
-              }}
-              className="block w-full px-3 py-2 text-left text-xs text-ink hover:bg-raised"
+              role="menuitem"
+              onClick={() => run(onConvert)}
+              className="block w-full px-3 py-2.5 text-left text-xs text-ink hover:bg-raised"
             >
               {isTodo ? "Convert to note" : "Convert to task"}
             </button>
             {mode === "day" && (
               <button
                 type="button"
-                onClick={() => {
-                  onMove("tomorrow");
-                  setMenuOpen(false);
-                }}
-                className="block w-full px-3 py-2 text-left text-xs text-ink hover:bg-raised"
+                role="menuitem"
+                onClick={() => run(() => onMove("tomorrow"))}
+                className="block w-full px-3 py-2.5 text-left text-xs text-ink hover:bg-raised"
               >
                 Move to tomorrow
               </button>
@@ -165,39 +253,33 @@ export function BlockItem({
             {mode === "backlog" ? (
               <button
                 type="button"
-                onClick={() => {
-                  onMove("today");
-                  setMenuOpen(false);
-                }}
-                className="block w-full px-3 py-2 text-left text-xs text-ink hover:bg-raised"
+                role="menuitem"
+                onClick={() => run(() => onMove("today"))}
+                className="block w-full px-3 py-2.5 text-left text-xs text-ink hover:bg-raised"
               >
                 Move to today
               </button>
             ) : (
               <button
                 type="button"
-                onClick={() => {
-                  onMove("backlog");
-                  setMenuOpen(false);
-                }}
-                className="block w-full px-3 py-2 text-left text-xs text-ink hover:bg-raised"
+                role="menuitem"
+                onClick={() => run(() => onMove("backlog"))}
+                className="block w-full px-3 py-2.5 text-left text-xs text-ink hover:bg-raised"
               >
                 Move to backlog
               </button>
             )}
             <button
               type="button"
-              onClick={() => {
-                onDelete();
-                setMenuOpen(false);
-              }}
-              className="block w-full px-3 py-2 text-left text-xs text-red-600 hover:bg-raised dark:text-red-300"
+              role="menuitem"
+              onClick={() => run(onDelete)}
+              className="block w-full px-3 py-2.5 text-left text-xs text-red-600 hover:bg-raised dark:text-red-300"
             >
               Delete
             </button>
-          </div>
+          </div>,
+          document.body,
         )}
-      </div>
     </div>
   );
 }

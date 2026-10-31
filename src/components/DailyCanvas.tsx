@@ -359,8 +359,8 @@ export function DailyCanvas({
         <StatusPill status={status} peers={peers} />
       </header>
 
-      <div className="ds-scroll ds-stream flex-1 overflow-y-auto px-2 py-4 sm:px-4">
-        <div className="mx-auto w-full max-w-2xl">
+      <div className="ds-scroll ds-stream flex-1 overflow-y-auto px-2 py-4 sm:px-6">
+        <div className="mx-auto w-full">
           {!ready && blocks.length === 0 && (
             <p className="px-2 py-6 text-sm text-muted">Loading this day from your device…</p>
           )}
@@ -410,7 +410,7 @@ export function DailyCanvas({
           submitDraft();
         }}
       >
-        <div className="mx-auto w-full max-w-2xl rounded-2xl border border-edge bg-panel px-2.5 py-2 focus-within:border-accent/60">
+        <div className="mx-auto w-full rounded-2xl border border-edge bg-panel px-2.5 py-2 focus-within:border-accent/60">
           <div className="flex items-end gap-2 px-0.5">
             <textarea
               ref={composerRef}
@@ -450,7 +450,7 @@ export function DailyCanvas({
             onToggleTask={() => setDraftType((current) => (current === "todo" ? "text" : "todo"))}
           />
         </div>
-        <p className="mx-auto mt-1.5 w-full max-w-2xl px-1 text-[11px] text-muted">
+        <p className="mx-auto mt-1.5 w-full px-1 text-[11px] text-muted">
           Saved on this device instantly. The pill above tells you when it reached the server.
         </p>
       </form>
