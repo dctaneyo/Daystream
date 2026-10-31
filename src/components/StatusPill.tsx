@@ -1,6 +1,8 @@
 "use client";
 
-export type ConnectionStatus = "connecting" | "connected" | "reconnecting" | "offline";
+import type { ConnectionStatus } from "@/lib/presence";
+
+export type { ConnectionStatus };
 
 const LABELS: Record<ConnectionStatus, string> = {
   connecting: "Connecting…",

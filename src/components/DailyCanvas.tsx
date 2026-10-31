@@ -23,6 +23,7 @@ import { StatusPill, type ConnectionStatus } from "@/components/StatusPill";
 import { splitTaskPrefix } from "@/lib/format-text";
 import type { CursorMap, Peer } from "@/lib/presence";
 import { collabUrl, fetchCollabToken } from "@/lib/collab-client";
+import { rememberStatus, sharedStatus } from "@/lib/collab-status";
 
 export function DailyCanvas({
   workspaceId,
@@ -51,7 +52,7 @@ export function DailyCanvas({
   const touchedRef = useRef(false);
 
   const [blocks, setBlocks] = useState<Block[]>([]);
-  const [status, setStatus] = useState<ConnectionStatus>("connecting");
+  const [status, setStatus] = useState<ConnectionStatus>(() => sharedStatus());
   const [peers, setPeers] = useState<Peer[]>([]);
   const [cursors, setCursors] = useState<CursorMap>({});
   const [draft, setDraft] = useState("");
@@ -60,6 +61,12 @@ export function DailyCanvas({
   const [ready, setReady] = useState(false);
 
   const userColor = useMemo(() => colorForUser(user.id), [user.id]);
+
+  /** Keeps the shared store in step so the next room inherits this reading. */
+  const applyStatus = useCallback((next: ConnectionStatus) => {
+    setStatus(next);
+    rememberStatus(next);
+  }, []);
 
   useEffect(() => {
     const doc = new Y.Doc();
@@ -73,6 +80,7 @@ export function DailyCanvas({
     localCache.on("synced", () => setReady(true));
 
     let cancelled = false;
+    let settled = false;
     let provider: HocuspocusProvider | null = null;
 
     const connect = async () => {
@@ -85,13 +93,17 @@ export function DailyCanvas({
           name: room,
           token,
           document: doc,
-          onConnect: () => setStatus("connected"),
+          onConnect: () => {
+            settled = true;
+            applyStatus("connected");
+          },
           onSynced: () => {
-            setStatus("connected");
+            settled = true;
+            applyStatus("connected");
             setReady(true);
           },
           onDisconnect: () => {
-            setStatus(navigator.onLine ? "reconnecting" : "offline");
+            applyStatus(navigator.onLine ? "reconnecting" : "offline");
           },
         });
         providerRef.current = provider;
@@ -142,7 +154,7 @@ export function DailyCanvas({
           syncPresence();
         }
       } catch {
-        if (!cancelled) setStatus(navigator.onLine ? "reconnecting" : "offline");
+        if (!cancelled) applyStatus(navigator.onLine ? "reconnecting" : "offline");
       } finally {
         if (!cancelled) setReady(true);
       }
@@ -150,18 +162,25 @@ export function DailyCanvas({
 
     void connect();
 
+    // A new room opens a new socket. Inherit the previous reading only for as
+    // long as it takes to sync; after that, say what is actually true.
+    const grace = window.setTimeout(() => {
+      if (!settled) applyStatus(navigator.onLine ? "connecting" : "offline");
+    }, 5000);
+
     const handleOnline = () => {
-      setStatus("reconnecting");
+      applyStatus("reconnecting");
       provider?.connect();
     };
-    const handleOffline = () => setStatus("offline");
+    const handleOffline = () => applyStatus("offline");
 
     window.addEventListener("online", handleOnline);
     window.addEventListener("offline", handleOffline);
-    if (!navigator.onLine) setStatus("offline");
+    if (!navigator.onLine) applyStatus("offline");
 
     return () => {
       cancelled = true;
+      window.clearTimeout(grace);
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
       provider?.destroy();
@@ -172,7 +191,7 @@ export function DailyCanvas({
       doc.destroy();
       docRef.current = null;
     };
-  }, [room, user.id, user.name, userColor]);
+  }, [room, user.id, user.name, userColor, applyStatus]);
 
   /**
    * Publishes this user's caret so peers can draw it inside the right Thing.

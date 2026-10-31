@@ -5,6 +5,8 @@
  * Awareness is ephemeral by design — it is never written to the document — so a
  * dropped socket simply removes the peer from the map.
  */
+export type ConnectionStatus = "connecting" | "connected" | "reconnecting" | "offline";
+
 export type Peer = { id: number; name: string; color: string };
 
 export type PeerCursor = Peer & { start: number; end: number };
