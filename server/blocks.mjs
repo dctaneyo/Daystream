@@ -27,15 +27,21 @@ export function readBlocks(doc) {
   return blocks;
 }
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Mirrors src/lib/rooms.ts: day, backlog and standalone-note rooms. */
 export function parseRoom(room) {
+  if (room.startsWith("note:")) {
+    const noteId = room.slice("note:".length);
+    return UUID.test(noteId) ? { kind: "note", noteId } : null;
+  }
+
   const index = room.indexOf(":");
   if (index === -1) return null;
   const workspaceId = room.slice(0, index);
   const date = room.slice(index + 1);
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(workspaceId)) {
-    return null;
-  }
-  if (date === "backlog") return { workspaceId, date: null };
+  if (!UUID.test(workspaceId)) return null;
+  if (date === "backlog") return { kind: "backlog", workspaceId, date: null };
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
-  return { workspaceId, date };
+  return { kind: "day", workspaceId, date };
 }

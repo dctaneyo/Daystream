@@ -12,6 +12,7 @@ import {
   deleteUser,
   setUserAdmin,
   setUserPin,
+  setUserPublicId,
   setUserStatus,
   writeAudit,
 } from "@/lib/users";
@@ -27,7 +28,6 @@ async function requireAdmin() {
 function refreshAdmin() {
   revalidatePath("/admin");
   revalidatePath("/admin/users");
-  revalidatePath("/admin/workspaces");
   revalidatePath("/admin/audit");
 }
 
@@ -40,10 +40,14 @@ export async function createUserAction(
   const name = String(formData.get("name") ?? "").trim();
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const workspaceName = String(formData.get("workspace") ?? "").trim();
+  const requestedId = String(formData.get("publicId") ?? "").trim();
   const requestedPin = String(formData.get("pin") ?? "").trim();
   const makeAdmin = formData.get("isAdmin") === "on";
 
   if (name.length < 2) return { error: "Enter a name." };
+  if (requestedId && !isSixDigits(requestedId)) {
+    return { error: "The user ID must be exactly 6 digits." };
+  }
   if (requestedPin && !isSixDigits(requestedPin)) return { error: "PIN must be exactly 6 digits." };
   if (email && !email.includes("@")) return { error: "That email doesn't look right." };
 
@@ -56,6 +60,7 @@ export async function createUserAction(
       pin,
       isAdmin: makeAdmin,
       createdBy: session.user.id,
+      publicId: requestedId || null,
     });
     await createWorkspace(created.id, workspaceName.slice(0, 40) || "Personal");
     await writeAudit(session.user.id, "user.create", created.id, {
@@ -68,7 +73,9 @@ export async function createUserAction(
       ok: true,
       publicId: created.publicId,
       pin,
-      message: requestedPin ? "Account created." : "Account created with a generated PIN.",
+      message: requestedPin
+        ? "Account created."
+        : "Account created with a generated PIN.",
     };
   } catch (error) {
     return { error: error instanceof Error ? error.message : "Could not create the account." };
@@ -122,6 +129,46 @@ export async function setUserAdminAction(
   return { ok: true, message: makeAdmin ? "Admin access granted." : "Admin access removed." };
 }
 
+/**
+ * Admins may pin an account to a specific 6-digit ID — a user who wants a
+ * memorable number, or a re-created account that should keep its old ID.
+ */
+export async function setUserPublicIdAction(
+  _previous: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const session = await requireAdmin();
+  const userId = String(formData.get("userId") ?? "");
+  const nextId = String(formData.get("publicId") ?? "").trim();
+  const currentId = String(formData.get("currentId") ?? "").trim();
+
+  if (!userId) return { error: "Missing user." };
+  if (!isSixDigits(nextId)) return { error: "The ID must be exactly 6 digits." };
+  if (nextId === currentId) return { ok: true, message: "That is already their ID." };
+
+  const { rows } = await query<{ id: string }>(
+    "SELECT id FROM users WHERE public_id = $1 AND id <> $2",
+    [nextId, userId],
+  );
+  if (rows.length > 0) return { error: `ID ${nextId} is already taken.` };
+
+  try {
+    await setUserPublicId(userId, nextId);
+  } catch (error) {
+    if ((error as { code?: string }).code === "23505") {
+      return { error: `ID ${nextId} is already taken.` };
+    }
+    return { error: error instanceof Error ? error.message : "Could not change the ID." };
+  }
+
+  await writeAudit(session.user.id, "user.change_id", userId, {
+    from: currentId,
+    to: nextId,
+  });
+  refreshAdmin();
+  return { ok: true, publicId: nextId, message: `Their new ID is ${nextId}.` };
+}
+
 export async function resetPinAction(
   _previous: ActionState,
   formData: FormData,
@@ -166,16 +213,4 @@ export async function deleteUserAction(
   await writeAudit(session.user.id, "user.delete", null, { publicId });
   refreshAdmin();
   return { ok: true, message: `Deleted user ${publicId}.` };
-}
-
-export async function deleteWorkspaceAction(formData: FormData) {
-  const session = await requireAdmin();
-  const workspaceId = String(formData.get("workspaceId") ?? "");
-  const name = String(formData.get("name") ?? "");
-  if (!workspaceId) redirect("/admin/workspaces");
-
-  await query("DELETE FROM workspaces WHERE id = $1", [workspaceId]);
-  await writeAudit(session.user.id, "workspace.delete", null, { workspaceId, name });
-  refreshAdmin();
-  redirect("/admin/workspaces");
 }

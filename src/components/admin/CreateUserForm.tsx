@@ -13,12 +13,21 @@ export function CreateUserForm() {
     <div className="rounded-xl border border-edge bg-panel p-4">
       <h2 className="text-sm font-medium">New account</h2>
       <p className="mt-1 text-xs text-muted">
-        Leave the PIN blank to generate one. The ID is generated automatically.
+        Leave the PIN blank to generate one, and the ID blank to generate a random 6-digit one.
       </p>
 
       <form action={action} className="mt-3 grid gap-2.5 sm:grid-cols-2">
         <input name="name" placeholder="Full name" required minLength={2} className="ds-input" />
         <input name="email" type="email" placeholder="Email (optional)" className="ds-input" />
+        <input
+          name="publicId"
+          inputMode="numeric"
+          pattern="\d{6}"
+          maxLength={6}
+          placeholder="6-digit ID (optional)"
+          className="ds-input"
+          aria-label="Account ID"
+        />
         <input
           name="pin"
           inputMode="numeric"

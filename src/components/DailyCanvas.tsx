@@ -21,8 +21,7 @@ import { BlockItem } from "@/components/BlockItem";
 import { FormatBar } from "@/components/FormatBar";
 import { StatusPill, type ConnectionStatus } from "@/components/StatusPill";
 import { splitTaskPrefix } from "@/lib/format-text";
-
-type Peer = { id: number; name: string; color: string };
+import type { CursorMap, Peer } from "@/lib/presence";
 
 function collabUrl(): string {
   const explicit = process.env.NEXT_PUBLIC_COLLAB_URL;
@@ -53,7 +52,7 @@ export function DailyCanvas({
   workspaceId: string;
   workspaceName: string;
   room: string;
-  mode: "day" | "backlog";
+  mode: "day" | "backlog" | "note";
   date: string | null;
   title: string;
   user: { id: string; name: string };
@@ -61,12 +60,16 @@ export function DailyCanvas({
   const router = useRouter();
   const docRef = useRef<Y.Doc | null>(null);
   const providerRef = useRef<HocuspocusProvider | null>(null);
+  const awarenessRef = useRef<{
+    setLocalStateField: (field: string, value: unknown) => void;
+  } | null>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const touchedRef = useRef(false);
 
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [status, setStatus] = useState<ConnectionStatus>("connecting");
   const [peers, setPeers] = useState<Peer[]>([]);
+  const [cursors, setCursors] = useState<CursorMap>({});
   const [draft, setDraft] = useState("");
   const [draftType, setDraftType] = useState<BlockType>("text");
   const [pendingId, setPendingId] = useState<string | null>(null);
@@ -108,31 +111,51 @@ export function DailyCanvas({
           },
         });
         providerRef.current = provider;
-        setStatus(navigator.onLine ? "reconnecting" : "offline");
 
         const awareness = provider.awareness;
         if (awareness) {
+          awarenessRef.current = awareness;
           awareness.setLocalStateField("user", {
             id: user.id,
             name: user.name,
             color: userColor,
           });
-          const syncPeers = () => {
-            const next: Peer[] = [];
+
+          const syncPresence = () => {
+            const nextPeers: Peer[] = [];
+            const nextCursors: CursorMap = {};
+
             awareness.getStates().forEach((state, clientId) => {
               if (clientId === awareness.clientID) return;
               const info = state.user as { name?: string; color?: string } | undefined;
               if (!info?.name) return;
-              next.push({
+
+              const color = info.color ?? "#7c8cff";
+              nextPeers.push({ id: clientId, name: info.name, color });
+
+              const cursor = state.cursor as
+                | { blockId?: unknown; start?: unknown; end?: unknown }
+                | null
+                | undefined;
+              if (!cursor || typeof cursor.blockId !== "string") return;
+
+              const start = typeof cursor.start === "number" ? cursor.start : 0;
+              const end = typeof cursor.end === "number" ? cursor.end : start;
+              (nextCursors[cursor.blockId] ??= []).push({
                 id: clientId,
                 name: info.name,
-                color: info.color ?? "#7c8cff",
+                color,
+                start,
+                end,
               });
             });
-            setPeers(next);
+
+            setPeers(nextPeers);
+            setCursors(nextCursors);
           };
-          awareness.on("change", syncPeers);
-          syncPeers();
+
+          awareness.on("change", syncPresence);
+          syncPresence();
         }
       } catch {
         if (!cancelled) setStatus(navigator.onLine ? "reconnecting" : "offline");
@@ -159,12 +182,23 @@ export function DailyCanvas({
       window.removeEventListener("offline", handleOffline);
       provider?.destroy();
       providerRef.current = null;
+      awarenessRef.current = null;
       localCache.destroy();
       doc.off("update", refresh);
       doc.destroy();
       docRef.current = null;
     };
   }, [room, user.id, user.name, userColor]);
+
+  /**
+   * Publishes this user's caret so peers can draw it inside the right Thing.
+   * Awareness is ephemeral: nothing here is persisted into the document.
+   */
+  const publishCursor = useCallback((blockId: string | null, start = 0, end = 0) => {
+    const awareness = awarenessRef.current;
+    if (!awareness) return;
+    awareness.setLocalStateField("cursor", blockId ? { blockId, start, end } : null);
+  }, []);
 
   const mutate = useCallback((fn: (array: Y.Array<Y.Map<unknown>>) => void) => {
     const doc = docRef.current;
@@ -385,6 +419,8 @@ export function DailyCanvas({
                 block={block}
                 mode={mode}
                 pending={pendingId === block.id}
+                cursors={cursors[block.id] ?? []}
+                onCursor={publishCursor}
                 onChange={(content) => updateBlock(block.id, content)}
                 onToggle={() => toggleBlock(block.id)}
                 onDelete={() => deleteBlock(block.id)}
@@ -427,7 +463,13 @@ export function DailyCanvas({
                   submitDraft();
                 }
               }}
-              placeholder={mode === "day" ? "Add a thing for this day…" : "Add to the backlog…"}
+              placeholder={
+                mode === "day"
+                  ? "Add a thing for this day…"
+                  : mode === "backlog"
+                    ? "Add to the backlog…"
+                    : "Add a thing to this note…"
+              }
               className="ds-textarea"
               aria-label="New thing"
               spellCheck

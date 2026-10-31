@@ -22,6 +22,7 @@ function secretKey() {
 /**
  * Rewrites the SQL projection of one room: `things` mirrors the Yjs document so
  * calendar heat-maps, search and roll-ups never have to decode CRDT state.
+ * Only day and backlog rooms project — notes live purely in their Yjs document.
  */
 async function projectRoom({ workspaceId, date }, blocks) {
   const client = await pool.connect();
@@ -75,8 +76,6 @@ async function projectRoom({ workspaceId, date }, blocks) {
   }
 }
 
-// Hocuspocus 4 splits the sync engine (Hocuspocus) from its own HTTP listener
-// (Server). We only need the engine: the custom server owns the socket.
 const debug = Boolean(process.env.DEBUG_WS);
 
 // Hocuspocus 4 splits the sync engine (Hocuspocus) from its own HTTP listener
@@ -85,6 +84,7 @@ export const hocuspocus = new Hocuspocus({
   async onConnect({ documentName }) {
     if (debug) console.log("[collab] connect", documentName);
   },
+
   async onAuthenticate({ token, documentName }) {
     if (debug) console.log("[collab] authenticate", documentName, token ? "token" : "no-token");
     if (!token) throw new Error("Missing collab token");
@@ -97,22 +97,45 @@ export const hocuspocus = new Hocuspocus({
 
     const room = parseRoom(documentName);
     if (!room) throw new Error("Unknown room");
-    if (payload.wid !== room.workspaceId) throw new Error("Token does not match workspace");
     if (typeof payload.sub !== "string") throw new Error("Token is missing a subject");
+    // The token names its room, so access to one note can never open another.
+    if (payload.room !== documentName) throw new Error("Token is for a different room");
 
-    const { rows } = await pool.query(
-      "SELECT role FROM workspace_members WHERE workspace_id = $1 AND user_id = $2",
-      [room.workspaceId, payload.sub],
-    );
-    if (rows.length === 0) throw new Error("Not a member of this workspace");
-    if (debug) console.log("[collab] authenticated", room.workspaceId, room.date);
+    const userId = payload.sub;
+    let workspaceId;
+
+    if (room.kind === "note") {
+      const { rows } = await pool.query(
+        `SELECT n.workspace_id
+           FROM notes n
+          WHERE n.id = $1
+            AND n.workspace_id = $2
+            AND (EXISTS (SELECT 1 FROM workspace_members wm
+                          WHERE wm.workspace_id = n.workspace_id AND wm.user_id = $3)
+                 OR EXISTS (SELECT 1 FROM note_members nm
+                             WHERE nm.note_id = n.id AND nm.user_id = $3))`,
+        [room.noteId, payload.wid, userId],
+      );
+      if (rows.length === 0) throw new Error("No access to this note");
+      workspaceId = rows[0].workspace_id;
+    } else {
+      if (payload.wid !== room.workspaceId) throw new Error("Token does not match workspace");
+      const { rows } = await pool.query(
+        "SELECT role FROM workspace_members WHERE workspace_id = $1 AND user_id = $2",
+        [room.workspaceId, userId],
+      );
+      if (rows.length === 0) throw new Error("Not a member of this workspace");
+      workspaceId = room.workspaceId;
+    }
+
+    if (debug) console.log("[collab] authenticated", workspaceId, room.kind);
 
     return {
-      userId: payload.sub,
+      userId,
       name: String(payload.name ?? ""),
       color: String(payload.color ?? "#7c8cff"),
-      workspaceId: room.workspaceId,
-      date: room.date,
+      workspaceId,
+      date: room.kind === "day" ? room.date : null,
     };
   },
 
@@ -134,16 +157,27 @@ export const hocuspocus = new Hocuspocus({
     const room = parseRoom(documentName);
     if (!room) return;
 
+    let workspaceId = room.workspaceId ?? null;
+    if (room.kind === "note") {
+      const { rows } = await pool.query("SELECT workspace_id FROM notes WHERE id = $1", [
+        room.noteId,
+      ]);
+      if (!rows[0]) return;
+      workspaceId = rows[0].workspace_id;
+    }
+
     const state = Buffer.from(Y.encodeStateAsUpdate(document));
     await pool.query(
       `INSERT INTO yjs_documents (room_name, workspace_id, state, updated_at)
        VALUES ($1, $2, $3, now())
        ON CONFLICT (room_name) DO UPDATE
          SET state = EXCLUDED.state, updated_at = now()`,
-      [documentName, room.workspaceId, state],
+      [documentName, workspaceId, state],
     );
 
-    await projectRoom(room, readBlocks(document));
+    if (room.kind !== "note") {
+      await projectRoom({ workspaceId, date: room.date }, readBlocks(document));
+    }
   },
 
   async onDisconnect({ documentName }) {

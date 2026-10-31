@@ -174,7 +174,8 @@ const forbidden = await fetch(
 );
 check("collab token rejects foreign workspace", forbidden.status === 403, `status ${forbidden.status}`);
 
-const minted = await new SignJWT({ wid: workspaceId, name: "Smoke Tester", color: "#7c8cff" })
+// Mirrors src/lib/collab-token.ts: the token names the room it was minted for.
+const minted = await new SignJWT({ wid: workspaceId, room, name: "Smoke Tester", color: "#7c8cff" })
   .setProtectedHeader({ alg: "HS256" })
   .setSubject(userId)
   .setIssuer("daystream")
@@ -206,6 +207,28 @@ function connect(doc) {
 const docA = new Y.Doc();
 const providerA = await connect(docA);
 check("websocket authenticated + synced", true);
+
+// The same token must not open a sibling room.
+const crossRoomDoc = new Y.Doc();
+const crossRoomRejected = await new Promise((resolve) => {
+  const provider = new HocuspocusProvider({
+    url: WS_URL,
+    name: `${workspaceId}:backlog`,
+    token: minted,
+    document: crossRoomDoc,
+    WebSocketPolyfill: WebSocket,
+  });
+  const timer = setTimeout(() => {
+    provider.destroy();
+    resolve(false);
+  }, 6000);
+  provider.on("authenticationFailed", () => {
+    clearTimeout(timer);
+    provider.destroy();
+    resolve(true);
+  });
+});
+check("collab token is bound to its room", crossRoomRejected);
 
 const blocks = docA.getArray("blocks");
 const makeBlock = (id, content, type = "text") => {

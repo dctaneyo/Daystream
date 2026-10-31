@@ -5,6 +5,8 @@ import { createPortal } from "react-dom";
 import type { Block } from "@/lib/blocks";
 import { FormatBar } from "@/components/FormatBar";
 import { InlineMarkdown } from "@/components/InlineMarkdown";
+import { PeerCarets } from "@/components/PeerCaret";
+import type { PeerCursor } from "@/lib/presence";
 
 const MENU_WIDTH = 176;
 const MENU_GAP = 6;
@@ -16,20 +18,24 @@ export function BlockItem({
   block,
   mode,
   pending,
+  cursors,
   onChange,
   onToggle,
   onDelete,
   onMove,
   onConvert,
+  onCursor,
 }: {
   block: Block;
-  mode: "day" | "backlog";
+  mode: "day" | "backlog" | "note";
   pending: boolean;
+  cursors: PeerCursor[];
   onChange: (content: string) => void;
   onToggle: () => void;
   onDelete: () => void;
   onMove: (target: "tomorrow" | "today" | "backlog") => void;
   onConvert: () => void;
+  onCursor: (blockId: string | null, start?: number, end?: number) => void;
 }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
@@ -99,6 +105,11 @@ export function BlockItem({
     };
   }, [menuOpen]);
 
+  const reportCursor = (el: HTMLTextAreaElement) => {
+    if (el.selectionStart === null) return;
+    onCursor(block.id, el.selectionStart, el.selectionEnd ?? el.selectionStart);
+  };
+
   const beginEditing = () => {
     setEditing(true);
     requestAnimationFrame(() => {
@@ -119,12 +130,13 @@ export function BlockItem({
   const items: Array<{ label: string; onClick: () => void; danger?: boolean }> = [
     { label: isTodo ? "Convert to note" : "Convert to task", onClick: onConvert },
   ];
-  if (mode === "day") items.push({ label: "Move to tomorrow", onClick: () => onMove("tomorrow") });
-  items.push(
-    mode === "backlog"
-      ? { label: "Move to today", onClick: () => onMove("today") }
-      : { label: "Move to backlog", onClick: () => onMove("backlog") },
-  );
+  if (mode === "day") {
+    items.push({ label: "Move to tomorrow", onClick: () => onMove("tomorrow") });
+    items.push({ label: "Move to backlog", onClick: () => onMove("backlog") });
+  }
+  if (mode === "backlog") {
+    items.push({ label: "Move to today", onClick: () => onMove("today") });
+  }
   items.push({ label: "Delete", onClick: onDelete, danger: true });
 
   return (
@@ -158,8 +170,15 @@ export function BlockItem({
               ref={textareaRef}
               value={block.content}
               rows={1}
-              onChange={(event) => onChange(event.target.value)}
+              onChange={(event) => {
+                onChange(event.target.value);
+                reportCursor(event.currentTarget);
+              }}
+              onSelect={(event) => reportCursor(event.currentTarget)}
+              onKeyUp={(event) => reportCursor(event.currentTarget)}
+              onClick={(event) => reportCursor(event.currentTarget)}
               onBlur={() => {
+                onCursor(null);
                 if (block.content.trim()) setEditing(false);
               }}
               onKeyDown={(event) => {
@@ -187,7 +206,7 @@ export function BlockItem({
           <button
             type="button"
             onClick={beginEditing}
-            className={`w-full whitespace-pre-wrap text-left text-[16px] leading-relaxed ${
+            className={`relative w-full whitespace-pre-wrap text-left text-[16px] leading-relaxed ${
               block.done ? "text-muted line-through" : "text-ink"
             }`}
           >
@@ -196,6 +215,7 @@ export function BlockItem({
             ) : (
               <span className="text-muted">Type a thing…</span>
             )}
+            <PeerCarets text={block.content} cursors={cursors} />
           </button>
         )}
       </div>

@@ -69,25 +69,46 @@ export async function createUserRecord(input: {
   pin: string;
   isAdmin: boolean;
   createdBy?: string | null;
+  /** Admin-chosen ID. Falls back to a random one when omitted. */
+  publicId?: string | null;
 }): Promise<{ id: string; publicId: string }> {
   const pinHash = await bcrypt.hash(input.pin, 10);
+  const requested = input.publicId?.trim();
+
+  const insert = async (publicId: string) => {
+    const { rows } = await query<{ id: string; public_id: string }>(
+      `INSERT INTO users (public_id, name, email, pin_hash, is_admin, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING id, public_id`,
+      [publicId, input.name, input.email ?? null, pinHash, input.isAdmin, input.createdBy ?? null],
+    );
+    return { id: rows[0]!.id, publicId: rows[0]!.public_id };
+  };
+
+  if (requested) {
+    try {
+      return await insert(requested);
+    } catch (error) {
+      if ((error as { code?: string }).code === "23505") {
+        throw new Error(`ID ${requested} is already taken.`);
+      }
+      throw error;
+    }
+  }
 
   for (let attempt = 0; attempt < 20; attempt += 1) {
-    const publicId = randomPublicId();
     try {
-      const { rows } = await query<{ id: string; public_id: string }>(
-        `INSERT INTO users (public_id, name, email, pin_hash, is_admin, created_by)
-         VALUES ($1, $2, $3, $4, $5, $6)
-         RETURNING id, public_id`,
-        [publicId, input.name, input.email ?? null, pinHash, input.isAdmin, input.createdBy ?? null],
-      );
-      return { id: rows[0]!.id, publicId: rows[0]!.public_id };
+      return await insert(randomPublicId());
     } catch (error) {
       if ((error as { code?: string }).code === "23505") continue;
       throw error;
     }
   }
   throw new Error("Unable to allocate a unique 6-digit ID — try again.");
+}
+
+export async function setUserPublicId(userId: string, publicId: string): Promise<void> {
+  await query("UPDATE users SET public_id = $2 WHERE id = $1", [userId, publicId]);
 }
 
 export async function setUserPin(userId: string, pin: string): Promise<void> {
@@ -159,52 +180,6 @@ export async function getAdminStats() {
     thingsToday: Number(row.things_today),
     documents: Number(row.documents),
   };
-}
-
-export type AdminWorkspace = {
-  id: string;
-  name: string;
-  createdAt: Date;
-  ownerPublicId: string | null;
-  ownerName: string | null;
-  memberCount: number;
-  thingCount: number;
-  documentCount: number;
-};
-
-export async function listWorkspacesForAdmin(limit = 200): Promise<AdminWorkspace[]> {
-  const { rows } = await query<{
-    id: string;
-    name: string;
-    created_at: Date;
-    owner_public_id: string | null;
-    owner_name: string | null;
-    member_count: string;
-    thing_count: string;
-    document_count: string;
-  }>(
-    `SELECT w.id, w.name, w.created_at,
-            u.public_id AS owner_public_id,
-            u.name      AS owner_name,
-            (SELECT count(*) FROM workspace_members m WHERE m.workspace_id = w.id) AS member_count,
-            (SELECT count(*) FROM things t WHERE t.workspace_id = w.id)            AS thing_count,
-            (SELECT count(*) FROM yjs_documents d WHERE d.workspace_id = w.id)     AS document_count
-       FROM workspaces w
-       JOIN users u ON u.id = w.owner_id
-      ORDER BY w.created_at DESC
-      LIMIT $1`,
-    [limit],
-  );
-  return rows.map((row) => ({
-    id: row.id,
-    name: row.name,
-    createdAt: row.created_at,
-    ownerPublicId: row.owner_public_id,
-    ownerName: row.owner_name,
-    memberCount: Number(row.member_count),
-    thingCount: Number(row.thing_count),
-    documentCount: Number(row.document_count),
-  }));
 }
 
 export type AuditEntry = {

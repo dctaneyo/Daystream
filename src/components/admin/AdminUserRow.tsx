@@ -5,6 +5,7 @@ import {
   deleteUserAction,
   resetPinAction,
   setUserAdminAction,
+  setUserPublicIdAction,
   setUserStatusAction,
 } from "@/actions/admin";
 import type { ActionState } from "@/lib/action-types";
@@ -48,9 +49,13 @@ export function AdminUserRow({ user }: { user: AdminUserRowData }) {
     deleteUserAction,
     { error: null },
   );
+  const [idState, idAction, idPending] = useActionState<ActionState, FormData>(
+    setUserPublicIdAction,
+    { error: null },
+  );
 
-  const busy = statusPending || adminPending || pinPending || deletePending;
-  const feedback = [statusState, adminState, deleteState].find((s) => s.error || s.message);
+  const busy = statusPending || adminPending || pinPending || deletePending || idPending;
+  const feedback = [statusState, adminState, deleteState, idState].find((s) => s.error || s.message);
 
   return (
     <div className="flex flex-col gap-2 border-t border-edge px-3.5 py-3 first:border-t-0">
@@ -87,6 +92,23 @@ export function AdminUserRow({ user }: { user: AdminUserRowData }) {
           <input type="hidden" name="isAdmin" value={user.isAdmin ? "false" : "true"} />
           <button type="submit" disabled={busy} className="ds-button px-3 py-1.5 text-xs disabled:opacity-40">
             {user.isAdmin ? "Remove admin" : "Make admin"}
+          </button>
+        </form>
+
+        <form action={idAction} className="flex items-center gap-1">
+          <input type="hidden" name="userId" value={user.id} />
+          <input type="hidden" name="currentId" value={user.publicId} />
+          <input
+            name="publicId"
+            defaultValue={user.publicId}
+            inputMode="numeric"
+            pattern="\d{6}"
+            maxLength={6}
+            aria-label={`Change the ID for ${user.name}`}
+            className="w-24 rounded-lg border border-edge bg-raised px-2 py-1 font-mono text-xs tracking-[0.15em] text-ink outline-none focus:border-accent/60"
+          />
+          <button type="submit" disabled={busy} className="ds-button px-2.5 py-1.5 text-xs disabled:opacity-40">
+            Change ID
           </button>
         </form>
 

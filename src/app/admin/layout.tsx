@@ -8,7 +8,6 @@ import { ThemeToggle } from "@/components/theme/ThemeToggle";
 const NAV = [
   { href: "/admin", label: "Overview" },
   { href: "/admin/users", label: "Users" },
-  { href: "/admin/workspaces", label: "Workspaces" },
   { href: "/admin/audit", label: "Audit log" },
 ];
 
@@ -72,9 +71,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             <Link href="/admin/users" className="text-muted hover:text-ink">
               Users
             </Link>
-            <Link href="/admin/workspaces" className="text-muted hover:text-ink">
-              Spaces
-            </Link>
+
             <Link href="/app" className="text-ink">
               App →
             </Link>
