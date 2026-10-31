@@ -4,9 +4,22 @@ import { WebSocketServer } from "ws";
 import { hocuspocus, closeCollab } from "./collab.mjs";
 import { migrate } from "./migrate.mjs";
 
-const dev = process.argv.includes("--dev") || process.env.NODE_ENV !== "production";
+// Railway hands you the public domain without a scheme (${{RAILWAY_PUBLIC_DOMAIN}}),
+// and next-auth throws `TypeError: Invalid URL` the moment it reads a scheme-less
+// AUTH_URL, which surfaces as a bare 500 page. Normalise it before Next loads.
+const authUrl = process.env.AUTH_URL?.trim();
+if (authUrl && !/^[a-z][a-z0-9+.-]*:\/\//i.test(authUrl)) {
+  process.env.AUTH_URL = `https://${authUrl}`;
+  console.log(`[env] AUTH_URL had no scheme, using https://${authUrl}`);
+}
+
+// Dev mode is opt-in via `--dev` (npm run dev). Inferring it from NODE_ENV meant a
+// host that does not set NODE_ENV=production would boot Next in dev mode.
+const dev = process.argv.includes("--dev");
 const port = Number(process.env.PORT || 3000);
-const hostname = process.env.HOSTNAME || "0.0.0.0";
+// Bind every interface. Railway and Docker both set HOSTNAME to the container's own
+// name, which pinned the listener to one resolved address instead of 0.0.0.0.
+const hostname = "0.0.0.0";
 
 await migrate({ log: (line) => console.log(line) });
 
@@ -75,9 +88,10 @@ server.on("upgrade", (req, socket, head) => {
 });
 
 server.listen(port, hostname, () => {
-  console.log(
-    `> Daystream listening on http://${hostname}:${port} (${dev ? "development" : "production"})`,
-  );
+  const address = server.address();
+  const bound =
+    address && typeof address === "object" ? `${address.address}:${address.port}` : `${hostname}:${port}`;
+  console.log(`> Daystream listening on http://${bound} (${dev ? "development" : "production"})`);
   console.log(`> Realtime endpoint: /collab`);
 });
 
