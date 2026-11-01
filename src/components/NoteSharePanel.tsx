@@ -97,7 +97,7 @@ export function NoteSharePanel({
         )}
 
         {shareState.error && (
-          <p className="mt-2 text-xs text-red-600 dark:text-red-300">{shareState.error}</p>
+          <p className="mt-2 text-xs text-danger">{shareState.error}</p>
         )}
         {shareState.message && <p className="mt-2 text-xs text-muted">{shareState.message}</p>}
         {sharedWithMe && (
@@ -128,7 +128,7 @@ export function NoteSharePanel({
             </button>
           </form>
           {renameState.error && (
-            <p className="mt-2 text-xs text-red-600 dark:text-red-300">{renameState.error}</p>
+            <p className="mt-2 text-xs text-danger">{renameState.error}</p>
           )}
         </section>
       )}

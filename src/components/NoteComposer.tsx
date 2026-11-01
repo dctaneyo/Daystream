@@ -28,7 +28,7 @@ export function NoteComposer() {
           {pending ? "Creating…" : "Create"}
         </button>
       </form>
-      {state.error && <p className="mt-2 text-sm text-red-600 dark:text-red-300">{state.error}</p>}
+      {state.error && <p className="mt-2 text-sm text-danger">{state.error}</p>}
     </div>
   );
 }

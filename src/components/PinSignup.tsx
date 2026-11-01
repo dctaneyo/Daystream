@@ -166,10 +166,10 @@ export function PinSignup() {
       <div className="mt-4 min-h-[2.25rem] text-center">
         {pending && <p className="text-sm text-muted">Creating your account…</p>}
         {!pending && state.error && (
-          <p className="text-sm text-red-600 dark:text-red-300">{state.error}</p>
+          <p className="text-sm text-danger">{state.error}</p>
         )}
         {!pending && !state.error && step === "confirm" && confirm.length > 0 && confirm !== pin && (
-          <p className="text-sm text-amber-600 dark:text-amber-300">Those PINs don&apos;t match yet.</p>
+          <p className="text-sm text-warning">Those PINs don&apos;t match yet.</p>
         )}
       </div>
 

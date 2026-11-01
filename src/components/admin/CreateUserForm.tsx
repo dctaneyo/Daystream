@@ -49,11 +49,11 @@ export function CreateUserForm() {
       </form>
 
       {state.error && (
-        <p className="mt-3 text-sm text-red-600 dark:text-red-300">{state.error}</p>
+        <p className="mt-3 text-sm text-danger">{state.error}</p>
       )}
 
       {state.ok && state.publicId && (
-        <div className="mt-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3.5 py-3">
+        <div className="mt-3 rounded-lg border border-success/30 bg-success/10 px-3.5 py-3">
           <p className="text-xs text-emerald-700 dark:text-emerald-200">{state.message}</p>
           <p className="mt-2 font-mono text-sm text-ink">
             ID <strong className="tracking-[0.2em]">{state.publicId}</strong> · PIN{" "}

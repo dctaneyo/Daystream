@@ -111,7 +111,7 @@ export function PinLogin({ initialError }: { initialError?: string | null }) {
         <div className="mt-4 min-h-[2.25rem] text-center">
           {pending && <p className="text-sm text-muted">Checking…</p>}
           {!pending && state.error && (
-            <p className="text-sm text-red-600 dark:text-red-300">{state.error}</p>
+            <p className="text-sm text-danger">{state.error}</p>
           )}
         </div>
 

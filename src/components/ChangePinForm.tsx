@@ -47,10 +47,10 @@ export function ChangePinForm() {
         </button>
       </div>
       {state.error && (
-        <p className="text-xs text-red-600 sm:col-span-3 dark:text-red-300">{state.error}</p>
+        <p className="text-xs text-danger sm:col-span-3">{state.error}</p>
       )}
       {state.ok && (
-        <p className="text-xs text-emerald-600 sm:col-span-3 dark:text-emerald-300">
+        <p className="text-xs text-success sm:col-span-3">
           {state.message}
         </p>
       )}
