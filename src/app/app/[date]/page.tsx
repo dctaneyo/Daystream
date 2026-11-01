@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { resolveActiveWorkspace } from "@/lib/workspaces";
+import { listNoteChoices } from "@/lib/notes";
 import { monthActivity } from "@/lib/activity";
 import { calendarGrid, formatLongDate, isISODate, monthKey } from "@/lib/date";
 import { dayRoom } from "@/lib/rooms";
@@ -25,7 +26,10 @@ export default async function DayPage({
   const { m } = await searchParams;
   const month = m && /^\d{4}-\d{2}$/.test(m) ? m : monthKey(date);
 
-  const activity = await monthActivity(workspace.id, month);
+  const [activity, notes] = await Promise.all([
+    monthActivity(workspace.id, month),
+    listNoteChoices(userId),
+  ]);
   const heat = Object.fromEntries(activity.map((entry) => [entry.date, entry.count]));
   const cells = calendarGrid(month);
 
@@ -39,6 +43,7 @@ export default async function DayPage({
           mode="day"
           date={date}
           title={formatLongDate(date)}
+          notes={notes}
           user={{
             id: userId,
             name: session.user.name ?? session.user.email ?? "You",

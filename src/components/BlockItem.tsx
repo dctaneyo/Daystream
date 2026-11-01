@@ -23,8 +23,10 @@ export function BlockItem({
   onToggle,
   onDelete,
   onMove,
+  onMoveToNote,
   onConvert,
   onCursor,
+  notes,
 }: {
   block: Block;
   mode: "day" | "backlog" | "note";
@@ -34,13 +36,16 @@ export function BlockItem({
   onToggle: () => void;
   onDelete: () => void;
   onMove: (target: "tomorrow" | "today" | "backlog") => void;
+  onMoveToNote: (noteId: string) => void;
   onConvert: () => void;
   onCursor: (blockId: string | null, start?: number, end?: number) => void;
+  notes: Array<{ id: string; title: string }>;
 }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [menuView, setMenuView] = useState<"actions" | "notes">("actions");
   const [menuPosition, setMenuPosition] = useState<MenuPosition | null>(null);
   const [editing, setEditing] = useState(false);
 
@@ -75,6 +80,7 @@ export function BlockItem({
         ? { left, bottom: window.innerHeight - rect.top + MENU_GAP }
         : { left, top: rect.bottom + MENU_GAP },
     );
+    setMenuView("actions");
     setMenuOpen(true);
   }, [menuOpen, mode]);
 
@@ -127,9 +133,15 @@ export function BlockItem({
 
   const isTodo = block.type === "todo" || block.type === "reminder";
 
-  const items: Array<{ label: string; onClick: () => void; danger?: boolean }> = [
-    { label: isTodo ? "Convert to Text" : "Convert to Task", onClick: onConvert },
-  ];
+  const items: Array<{
+    label: string;
+    onClick: () => void;
+    danger?: boolean;
+    keepOpen?: boolean;
+  }> = [{ label: isTodo ? "Convert to Text" : "Convert to Task", onClick: onConvert }];
+  if (notes.length > 0) {
+    items.push({ label: "Move to Note…", onClick: () => setMenuView("notes"), keepOpen: true });
+  }
   if (mode === "day") {
     items.push({ label: "Move to tomorrow", onClick: () => onMove("tomorrow") });
     items.push({ label: "Move to backlog", onClick: () => onMove("backlog") });
@@ -255,19 +267,45 @@ export function BlockItem({
             }}
             className="z-50 overflow-hidden rounded-xl border border-edge bg-panel shadow-xl"
           >
-            {items.map((item) => (
-              <button
-                key={item.label}
-                type="button"
-                role="menuitem"
-                onClick={() => run(item.onClick)}
-                className={`block w-full px-3 py-2.5 text-left text-xs hover:bg-raised ${
-                  item.danger ? "text-red-600 dark:text-red-300" : "text-ink"
-                }`}
-              >
-                {item.label}
-              </button>
-            ))}
+            {menuView === "notes" ? (
+              <div className="max-h-[50vh] overflow-y-auto">
+                <p className="px-3 py-2 text-[11px] uppercase tracking-wider text-muted">
+                  Move to Note
+                </p>
+                {notes.map((note) => (
+                  <button
+                    key={note.id}
+                    type="button"
+                    role="menuitem"
+                    onClick={() => run(() => onMoveToNote(note.id))}
+                    className="block min-h-11 w-full truncate px-3 text-left text-xs text-ink hover:bg-raised"
+                  >
+                    {note.title}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setMenuView("actions")}
+                  className="block min-h-11 w-full border-t border-edge px-3 text-left text-xs text-muted hover:bg-raised"
+                >
+                  Back
+                </button>
+              </div>
+            ) : (
+              items.map((item) => (
+                <button
+                  key={item.label}
+                  type="button"
+                  role="menuitem"
+                  onClick={() => (item.keepOpen ? item.onClick() : run(item.onClick))}
+                  className={`block min-h-11 w-full px-3 text-left text-xs hover:bg-raised ${
+                    item.danger ? "text-danger" : "text-ink"
+                  }`}
+                >
+                  {item.label}
+                </button>
+              ))
+            )}
           </div>,
           document.body,
         )}

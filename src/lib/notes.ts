@@ -20,7 +20,11 @@ export type NoteAccess = {
 export type NoteSummary = NoteAccess & {
   updatedAt: Date;
   memberCount: number;
+  thingCount: number;
 };
+
+/** What the "Move to Note" picker needs, and nothing else. */
+export type NoteChoice = { id: string; title: string };
 
 export type NoteAccessWithInbox = NoteAccess & { isInbox: boolean };
 
@@ -32,6 +36,7 @@ type NoteRow = {
   created_by: string | null;
   updated_at: Date;
   member_count: string;
+  thing_count: string;
   can_manage: boolean;
   is_inbox: boolean;
 };
@@ -53,6 +58,7 @@ export async function listNotes(userId: string, limit = 200): Promise<NoteSummar
             n.updated_at,
             n.is_inbox,
             (SELECT count(*) FROM note_members m WHERE m.note_id = n.id) AS member_count,
+            (SELECT count(*) FROM things t WHERE t.note_id = n.id) AS thing_count,
             EXISTS (SELECT 1 FROM workspace_members wm
                      WHERE wm.workspace_id = n.workspace_id AND wm.user_id = $1) AS can_manage
        FROM notes n
@@ -73,6 +79,7 @@ export async function listNotes(userId: string, limit = 200): Promise<NoteSummar
     isInbox: row.is_inbox,
     updatedAt: row.updated_at,
     memberCount: Number(row.member_count),
+    thingCount: Number(row.thing_count),
   }));
 }
 
@@ -86,6 +93,7 @@ export async function getNoteForUser(noteId: string, userId: string): Promise<No
             n.updated_at,
             n.is_inbox,
             (SELECT count(*) FROM note_members m WHERE m.note_id = n.id) AS member_count,
+            (SELECT count(*) FROM things t WHERE t.note_id = n.id) AS thing_count,
             EXISTS (SELECT 1 FROM workspace_members wm
                      WHERE wm.workspace_id = n.workspace_id AND wm.user_id = $1) AS can_manage
        FROM notes n
@@ -160,6 +168,12 @@ export async function countThingsInNote(noteId: string): Promise<number> {
     [noteId],
   );
   return Number(rows[0]?.count ?? 0);
+}
+
+/** Notes a person can file a Thing into, Inbox first. */
+export async function listNoteChoices(userId: string): Promise<NoteChoice[]> {
+  const notes = await listNotes(userId);
+  return notes.map((note) => ({ id: note.id, title: note.title }));
 }
 
 export type NoteMember = { userId: string; publicId: string; name: string };

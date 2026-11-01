@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { resolveActiveWorkspace } from "@/lib/workspaces";
+import { listNoteChoices } from "@/lib/notes";
 import { backlogRoom } from "@/lib/rooms";
 import { DailyCanvas } from "@/components/DailyCanvas";
 
@@ -11,6 +12,7 @@ export default async function BacklogPage() {
   if (!userId) redirect("/login");
 
   const workspace = await resolveActiveWorkspace(userId);
+  const notes = await listNoteChoices(userId);
 
   return (
     <main className="flex min-h-0 flex-col">
@@ -21,6 +23,7 @@ export default async function BacklogPage() {
         mode="backlog"
         date={null}
         title="Backlog"
+        notes={notes}
         user={{
           id: userId,
           name: session.user.name ?? session.user.email ?? "You",

@@ -1,6 +1,11 @@
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
-import { countThingsInNote, getNoteForUser, listNoteMembers } from "@/lib/notes";
+import {
+  countThingsInNote,
+  getNoteForUser,
+  listNoteChoices,
+  listNoteMembers,
+} from "@/lib/notes";
 import { noteRoom } from "@/lib/rooms";
 import { DailyCanvas } from "@/components/DailyCanvas";
 import { NoteSharePanel } from "@/components/NoteSharePanel";
@@ -15,10 +20,13 @@ export default async function NotePage({ params }: { params: Promise<{ id: strin
   const note = await getNoteForUser(id, userId);
   if (!note) notFound();
 
-  const [members, thingCount] = await Promise.all([
+  const [members, thingCount, choices] = await Promise.all([
     listNoteMembers(note.id),
     countThingsInNote(note.id),
+    listNoteChoices(userId),
   ]);
+  // Filing a Thing into the Note it already lives in is not a move.
+  const notes = choices.filter((choice) => choice.id !== note.id);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col xl:flex-row">
@@ -29,6 +37,7 @@ export default async function NotePage({ params }: { params: Promise<{ id: strin
           room={noteRoom(note.id)}
           mode="note"
           date={null}
+          notes={notes}
           title={note.title}
           user={{
             id: userId,

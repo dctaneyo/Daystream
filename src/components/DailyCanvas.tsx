@@ -16,7 +16,7 @@ import {
 } from "@/lib/blocks";
 import { colorForUser } from "@/lib/colors";
 import { addDays, todayISO } from "@/lib/date";
-import { backlogRoom, dayRoom } from "@/lib/rooms";
+import { backlogRoom, dayRoom, noteRoom } from "@/lib/rooms";
 import { BlockItem } from "@/components/BlockItem";
 import { FormatBar } from "@/components/FormatBar";
 import { StatusPill, type ConnectionStatus } from "@/components/StatusPill";
@@ -33,6 +33,7 @@ export function DailyCanvas({
   mode,
   date,
   title,
+  notes,
   user,
 }: {
   workspaceId: string;
@@ -41,6 +42,7 @@ export function DailyCanvas({
   mode: "day" | "backlog" | "note";
   date: string | null;
   title: string;
+  notes: Array<{ id: string; title: string }>;
   user: { id: string; name: string };
 }) {
   const router = useRouter();
@@ -312,13 +314,14 @@ export function DailyCanvas({
     [mutate, router],
   );
 
-  /** Carries a Thing into another day (or the backlog) without retyping it. */
-  const moveBlock = useCallback(
-    async (block: Block, target: "tomorrow" | "today" | "backlog") => {
-      const targetDate =
-        target === "backlog" ? null : target === "tomorrow" ? addDays(date ?? todayISO(), 1) : todayISO();
-      const targetRoom = targetDate ? dayRoom(workspaceId, targetDate) : backlogRoom(workspaceId);
-      if (targetRoom === room) return;
+  /**
+   * Carries one Thing into another document and removes the original. Every
+   * move — to a day, to the backlog, into a Note — goes through here, so there
+   * is exactly one copy of the transport (UI-09).
+   */
+  const carryBlock = useCallback(
+    async (block: Block, targetRoom: string): Promise<boolean> => {
+      if (targetRoom === room) return false;
 
       setPendingId(block.id);
       const socket: { provider: HocuspocusProvider | null } = { provider: null };
@@ -356,12 +359,7 @@ export function DailyCanvas({
         await new Promise((resolve) => window.setTimeout(resolve, 250));
       } catch {
         setPendingId(null);
-        showToast({
-          message: "Couldn't move that Thing — it's still here.",
-          tone: "error",
-          action: { label: "Retry", run: () => void moveBlock(block, target) },
-        });
-        return;
+        return false;
       } finally {
         socket.provider?.destroy();
         targetDoc.destroy();
@@ -369,7 +367,33 @@ export function DailyCanvas({
 
       removeBlock(block.id);
       setPendingId(null);
+      return true;
+    },
+    [removeBlock, room],
+  );
+
+  const moveBlock = useCallback(
+    async (block: Block, target: "tomorrow" | "today" | "backlog") => {
+      const targetDate =
+        target === "backlog"
+          ? null
+          : target === "tomorrow"
+            ? addDays(date ?? todayISO(), 1)
+            : todayISO();
+      const targetRoom = targetDate
+        ? dayRoom(workspaceId, targetDate)
+        : backlogRoom(workspaceId);
+
+      const moved = await carryBlock(block, targetRoom);
       router.refresh();
+      if (!moved) {
+        showToast({
+          message: "Couldn't move that Thing — it's still here.",
+          tone: "error",
+          action: { label: "Retry", run: () => void moveBlock(block, target) },
+        });
+        return;
+      }
       showToast({
         message:
           target === "backlog"
@@ -379,7 +403,29 @@ export function DailyCanvas({
               : "Moved to today",
       });
     },
-    [date, removeBlock, room, router, workspaceId],
+    [carryBlock, date, router, workspaceId],
+  );
+
+  /** Filing: a Thing stops being loose and joins the Note it belongs to. */
+  const moveToNote = useCallback(
+    async (block: Block, noteId: string) => {
+      const destination = notes.find((note) => note.id === noteId);
+      const moved = await carryBlock(block, noteRoom(noteId));
+      router.refresh();
+      if (!moved) {
+        showToast({
+          message: "Couldn't file that Thing — it's still here.",
+          tone: "error",
+          action: {
+            label: "Retry",
+            run: () => void moveToNote(block, noteId),
+          },
+        });
+        return;
+      }
+      showToast({ message: `Filed into ${destination?.title ?? "that Note"}` });
+    },
+    [carryBlock, notes, router],
   );
 
   const submitDraft = useCallback(() => {
@@ -479,6 +525,8 @@ export function DailyCanvas({
                 onDelete={() => deleteBlock(block.id)}
                 onConvert={() => convertBlock(block.id)}
                 onMove={(target) => void moveBlock(block, target)}
+                notes={notes}
+                onMoveToNote={(noteId) => void moveToNote(block, noteId)}
               />
             ))}
           </div>

@@ -50,6 +50,7 @@ export default async function NotesPage() {
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm text-ink">{note.title}</span>
                   <span className="block truncate text-[11px] text-muted">
+                    {note.thingCount} {note.thingCount === 1 ? "Thing" : "Things"} ·{" "}
                     {note.sharedWithMe ? "shared with you" : note.workspaceName} ·{" "}
                     {note.memberCount === 0
                       ? "just you"
