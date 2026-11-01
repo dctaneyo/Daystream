@@ -247,6 +247,55 @@ replacing it.
   may never be the only place a destination or a required control appears, and no control may be
   revealable only by hover. Check 360×740, 390×844, 768×1024 and 1440×900 — in that order.
 
+### Visual identity: bespoke, not generated (VI-01…VI-12)
+
+The failure mode here is not ugliness — it's looking like every other generated app. Restraint alone
+does not produce identity: a system UI font, a slate scale and an indigo accent *are* the default
+SaaS look, and it is where this code sits today (`--accent: #4c56d8`). Identity has to be chosen,
+named, and then defended on every screen.
+
+- **VI-01 The tell list.** None of these ship, however good they look alone: gradient or aurora
+  backgrounds; gradient text; glow on dark surfaces; glassmorphism cards (blur is allowed only for a
+  sticky bar over scrolling content); bento grids and floating cards with large soft shadows; a
+  rounded-square icon from a general-purpose set beside every label; emoji in chrome or copy;
+  sparkles or “AI”/“magic”/“smart” affordances; streaming-dot loaders; badge soup (pill counts, New,
+  Beta, Pro); radii above 16px; pure black text or pure white cards in dark mode; skeleton shimmer as
+  the default loading state; a marketing hero inside the app; the greeting-plus-emoji header;
+  “Let's get started”; and `01 / 02 / 03` markers unless order genuinely carries meaning.
+- **VI-02 One accent, three uses per screen.** Accent marks the primary action, the current position
+  (today, active nav, selection) — and nothing else. No second hue may exist except the semantic
+  `success`/`warning`/`danger` tokens, and those appear on state, never on identity.
+- **VI-03 Type is the interface.** This is a text product, so words are the visual. Body stays at
+  16px native faces: they feel like the phone, survive any accessibility text size, and cost nothing
+  to load. Identity comes from treatment instead of novelty — the **day stamp is mono, uppercase and
+  tracked**, titles are tight-tracked semibold, labels are sentence case. Do not pair a display face
+  into the app: a stranger's letterforms date faster than a layout does.
+- **VI-04 Signature: the stream and the stamp.** The one memorable thing is chronological rhythm —
+  the day header in mono, spacing rather than hairlines between days, the composer pinned below,
+  presence marks in the margin. One signature per screen; a screen without one should be almost
+  invisible instead.
+- **VI-05 Earn every element.** Structure encodes something true or it goes: no eyebrow above a
+  heading that already says it, no divider between things space already separates, no icon repeating
+  a visible word.
+- **VI-06 Copy is design material.** Sentence case, plain verbs, active voice; no exclamation marks,
+  no emoji, no self-praise (“beautiful”, “seamless”, “powerful”), no “Powered by”. Errors say what
+  happened and what to do; empty states invite the next action; words name what the person controls,
+  never how it is built.
+- **VI-07 No slop by dependency.** A font, icon set, animation library or component kit is a design
+  decision: it needs a rule in this document and a UX rule it serves, in the same change. Reaching
+  for a Stock component kit “because it's fast” is precisely how a bespoke app becomes a template.
+- **VI-08 Motion is orientation.** `UX-22` already caps it: nothing bounces, floats, pulses, or
+  reveals on scroll inside the app.
+- **VI-09 Density is the feature.** A notes app earns trust by showing many lines calmly: steady
+  line-height, no card around every line, no chrome around text someone is reading.
+- **VI-10 The cover test.** Review at 390×844 with the brand hidden. If the screenshot could belong
+  to any notes app — or to any generated demo — the screen is unfinished, not done.
+- **VI-11 Native where native is better.** Follow platform conventions (keyboard behaviour, safe
+  areas, tap targets) instead of reinventing them; a custom control must beat the native one on
+  `UX-05` or `UX-32` grounds to be worth building.
+- **VI-12 Remove one accessory.** Before shipping, delete the least useful visual element on the
+  screen. If nothing can go, the screen wasn't designed — it accumulated.
+
 ---
 
 ## 9. Components
@@ -272,8 +321,8 @@ needs focus and arrow keys) · `Field` (label + hint + error) · `EmptyState` ·
 
 Designed and checked at 390×844 first, then widened · four states defined · thumb-only touch path ·
 keyboard path · every shortcut has its on-screen twin · both themes · contrast and focus checked ·
-copy follows §4 · no new raw colour or off-scale size · the rule served is cited in the change ·
-this document updated if a rule changed.
+copy follows §4 · no new raw colour or off-scale size · passes the cover test (`VI-10`) · the rule
+served is cited in the change · this document updated if a rule changed.
 
 ---
 
@@ -331,6 +380,9 @@ pieces of vocabulary debt (`UX-14`, `UI-09`).
     `Shift` mid-typing — multiline Things are desktop-only (`UX-31`, `UX-32`).
 11. The shell is written desktop-first: a fixed `lg` sidebar plus a `lg:hidden` header makes the
     phone the exception path instead of the base case (`UI-11`, and the unreachable Notes in item 2).
+12. The identity is the fourth default rather than a chosen one: system UI font, slate ramp, indigo
+    accent. The only element that could not belong to another product is the three-bar `Brand`
+    glyph (`VI-01`, `VI-02`, `VI-04`).
 
 ---
 
@@ -345,3 +397,7 @@ Decision log entries look like:
 > **2026-11-01 · doctrine, UX-31/UX-32/UI-11 ·** Mobile became the design target rather than the
 > shrunk case, because ~95% of use is one thumb on a phone. Shortcuts and hover are now explicitly
 > accelerators: no capability may exist only behind a key a phone does not have.
+
+> **2026-11-01 · VI-01…VI-12 ·** Added an identity layer with a tell list and a cover test, because
+> “clean and restrained” had quietly produced the default SaaS palette. Identity now comes from the
+> stream, the mono day stamp and a single accent — not from novelty typefaces or an icon set.

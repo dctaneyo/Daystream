@@ -33,6 +33,11 @@
 - Every capability needs a tap-reachable control, not just a shortcut: phone keyboards have no
   `Ctrl`/`Cmd`/`Alt`/`Option`/arrows and no usable `Shift`. Ship the on-screen twin with the shortcut
   (`DESIGN.md` UX-31/UX-32, table in §5.5).
+- **Bespoke over templated.** Generated-app tells are banned by `DESIGN.md` §8 `VI-01…VI-12`:
+  gradients, glass cards, emoji, an icon per label, badge soup, sparkle affordances. Every screen
+  names its signature element and passes the cover test (`VI-10`) with the brand hidden at 390×844.
+- New fonts, icon sets, animation libraries or component kits are design decisions, not conveniences:
+  they need a rule in `DESIGN.md` and a UX rule served, in the same change (`VI-07`).
 - If a change needs a rule that isn't written down, add the rule to `DESIGN.md` in the same commit.
 
 ## Pushing
