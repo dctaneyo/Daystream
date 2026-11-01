@@ -6,10 +6,10 @@ const STORAGE_KEY = "daystream-theme";
 
 type Theme = "system" | "light" | "dark";
 
-const OPTIONS: Array<{ value: Theme; label: string; icon: string; title: string }> = [
-  { value: "system", label: "System", icon: "◐", title: "Follow device setting" },
-  { value: "light", label: "Light", icon: "☀", title: "Always light" },
-  { value: "dark", label: "Dark", icon: "☾", title: "Always dark" },
+const OPTIONS: Array<{ value: Theme; label: string; icon: string }> = [
+  { value: "system", label: "System", icon: "◐" },
+  { value: "light", label: "Light", icon: "☀" },
+  { value: "dark", label: "Dark", icon: "☾" },
 ];
 
 export function applyTheme(theme: Theme): void {
@@ -62,7 +62,6 @@ export function ThemeToggle({ compact = false }: { compact?: boolean }) {
             key={option.value}
             type="button"
             data-theme-option={option.value}
-            title={option.title}
             aria-pressed={active}
             onClick={() => choose(option.value)}
             className={`flex flex-1 items-center justify-center gap-1 rounded-[6px] px-2 py-1 text-[11px] transition ${

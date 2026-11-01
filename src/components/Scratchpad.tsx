@@ -95,12 +95,11 @@ export function Scratchpad({ room, userId }: { room: string; userId: string }) {
       <div className="flex items-center justify-between gap-2">
         <h2 className="text-xs font-medium uppercase tracking-wider text-muted">Scratchpad</h2>
         <span
-          className={`flex items-center gap-1 text-[10px] ${live ? "text-muted" : "text-amber-600 dark:text-amber-300"}`}
-          title={live ? "Synced with your devices" : "Saved on this device, waiting to sync"}
+          className={`flex items-center gap-1 text-[10px] ${live ? "text-muted" : "text-warning"}`}
         >
           <span
             aria-hidden
-            className={`h-1.5 w-1.5 rounded-full ${live ? "bg-emerald-400" : "bg-amber-400"}`}
+            className={`h-1.5 w-1.5 rounded-full ${live ? "bg-success" : "bg-warning"}`}
           />
           {live ? "Synced" : "Local"}
         </span>

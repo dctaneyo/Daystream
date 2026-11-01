@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useRef, useState } from "react";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import {
   deleteNoteAction,
   renameNoteAction,
@@ -27,10 +28,12 @@ export function NoteSharePanel({
   thingCount: number;
 }) {
   // Named target, and a number only when one is actually known (UX-13).
-  const deleteWarning =
+  const deleteDescription =
     thingCount > 0
-      ? `Delete “${title}”? Its ${thingCount} ${thingCount === 1 ? "Thing" : "Things"} go with it.`
-      : `Delete “${title}”? Every Thing in it goes too.`;
+      ? `Its ${thingCount} ${thingCount === 1 ? "Thing" : "Things"} go with it. This cannot be undone.`
+      : "Every Thing in it goes with it. This cannot be undone.";
+  const deleteFormRef = useRef<HTMLFormElement>(null);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [shareState, shareAction, sharePending] = useActionState<ActionState, FormData>(
     shareNoteAction,
     { error: null },
@@ -132,22 +135,29 @@ export function NoteSharePanel({
 
       {canManage && (
         <section className="border-t border-edge pt-4">
-          <form
-            action={deleteNoteAction}
-            onSubmit={(event) => {
-              if (!window.confirm(deleteWarning)) {
-                event.preventDefault();
-              }
-            }}
-          >
+          <form ref={deleteFormRef} action={deleteNoteAction}>
             <input type="hidden" name="noteId" value={noteId} />
             <button
-              type="submit"
-              className="text-xs text-red-600 hover:underline dark:text-red-300"
+              type="button"
+              onClick={() => setConfirmingDelete(true)}
+              className="min-h-11 text-xs text-danger hover:underline"
             >
               Delete note
             </button>
           </form>
+
+          <ConfirmDialog
+            open={confirmingDelete}
+            title={`Delete “${title}”?`}
+            description={deleteDescription}
+            confirmLabel="Delete note"
+            destructive
+            onCancel={() => setConfirmingDelete(false)}
+            onConfirm={() => {
+              setConfirmingDelete(false);
+              deleteFormRef.current?.requestSubmit();
+            }}
+          />
         </section>
       )}
     </div>

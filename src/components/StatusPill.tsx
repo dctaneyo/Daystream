@@ -12,10 +12,10 @@ const LABELS: Record<ConnectionStatus, string> = {
 };
 
 const DOT: Record<ConnectionStatus, string> = {
-  connecting: "bg-amber-400",
-  connected: "bg-emerald-400",
-  reconnecting: "bg-amber-400",
-  offline: "bg-red-400",
+  connecting: "bg-warning",
+  connected: "bg-success",
+  reconnecting: "bg-warning",
+  offline: "bg-danger",
 };
 
 export function StatusPill({
@@ -32,7 +32,7 @@ export function StatusPill({
           {peers.slice(0, 4).map((peer) => (
             <span
               key={peer.id}
-              title={peer.name}
+              aria-label={peer.name}
               style={{ backgroundColor: peer.color }}
               className="grid h-5 w-5 place-items-center rounded-full text-[10px] font-semibold text-black ring-2 ring-canvas"
             >

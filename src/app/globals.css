@@ -20,6 +20,8 @@
   --accent-soft: #e6e8fb;
   /* State only, never identity (VI-02). */
   --danger: #b42318;
+  --success: #067647;
+  --warning: #b54708;
   --scroll-thumb: #c9cfda;
 }
 
@@ -35,6 +37,8 @@
   --accent-ink: #0a0b10;
   --accent-soft: #2a2f52;
   --danger: #ff9b90;
+  --success: #75e0a7;
+  --warning: #fec84b;
   --scroll-thumb: #2a2f38;
 }
 
@@ -50,6 +54,8 @@
   --color-accent-ink: var(--accent-ink);
   --color-accent-soft: var(--accent-soft);
   --color-danger: var(--danger);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
   --font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
     Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;

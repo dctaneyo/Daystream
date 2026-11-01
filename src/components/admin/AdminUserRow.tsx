@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useRef, useState } from "react";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import {
   deleteUserAction,
   resetPinAction,
@@ -54,6 +55,9 @@ export function AdminUserRow({ user }: { user: AdminUserRowData }) {
     { error: null },
   );
 
+  const deleteFormRef = useRef<HTMLFormElement>(null);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+
   const busy = statusPending || adminPending || pinPending || deletePending || idPending;
   const feedback = [statusState, adminState, deleteState, idState].find((s) => s.error || s.message);
 
@@ -68,7 +72,7 @@ export function AdminUserRow({ user }: { user: AdminUserRowData }) {
           </span>
         )}
         {user.status !== "active" && (
-          <span className="rounded-full border border-amber-500/40 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-amber-600 dark:text-amber-300">
+          <span className="rounded-full border border-warning/40 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-warning">
             {user.status}
           </span>
         )}
@@ -120,33 +124,40 @@ export function AdminUserRow({ user }: { user: AdminUserRowData }) {
           </button>
         </form>
 
-        <form
-          action={deleteAction}
-          onSubmit={(event) => {
-            if (!window.confirm(`Delete user ${user.publicId}? Their workspaces and notes go too.`)) {
-              event.preventDefault();
-            }
-          }}
-        >
+        <form ref={deleteFormRef} action={deleteAction}>
           <input type="hidden" name="userId" value={user.id} />
           <input type="hidden" name="publicId" value={user.publicId} />
           <button
-            type="submit"
+            type="button"
+            onClick={() => setConfirmingDelete(true)}
             disabled={busy || user.isSelf}
-            className="rounded-md px-2.5 py-1.5 text-xs text-red-600 hover:bg-red-500/10 disabled:opacity-30 dark:text-red-300"
+            className="min-h-9 rounded-md px-2.5 text-xs text-danger hover:bg-danger/10 disabled:opacity-30"
           >
             Delete
           </button>
         </form>
+
+        <ConfirmDialog
+          open={confirmingDelete}
+          title={`Delete user ${user.publicId}?`}
+          description={`Their workspaces and Notes go with them. This cannot be undone.`}
+          confirmLabel="Delete user"
+          destructive
+          onCancel={() => setConfirmingDelete(false)}
+          onConfirm={() => {
+            setConfirmingDelete(false);
+            deleteFormRef.current?.requestSubmit();
+          }}
+        />
       </div>
 
       {pinState.ok && pinState.pin && (
-        <p className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 font-mono text-xs text-emerald-800 dark:text-emerald-100">
+        <p className="rounded-lg border border-success/30 bg-success/10 px-3 py-2 font-mono text-xs text-success">
           New PIN for {pinState.publicId}: <strong className="tracking-[0.2em]">{pinState.pin}</strong>
         </p>
       )}
       {feedback?.error && (
-        <p className="text-xs text-red-600 dark:text-red-300">{feedback.error}</p>
+        <p className="text-xs text-danger">{feedback.error}</p>
       )}
       {feedback?.message && !pinState.ok && <p className="text-xs text-muted">{feedback.message}</p>}
     </div>
