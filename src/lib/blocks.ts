@@ -3,7 +3,11 @@ import * as Y from "yjs";
 /** The Yjs array key holding every block ("Thing") for a room. */
 export const BLOCKS_KEY = "blocks";
 
-export type BlockType = "text" | "todo" | "toggle" | "reminder";
+/**
+ * `toggle` used to live here with no behaviour attached to it; documents that
+ * still carry it read back as text, which is what it always looked like.
+ */
+export type BlockType = "text" | "todo" | "reminder";
 
 export interface Block {
   id: string;
@@ -14,7 +18,7 @@ export interface Block {
   createdBy: string | null;
 }
 
-export const BLOCK_TYPES: BlockType[] = ["text", "todo", "toggle", "reminder"];
+export const BLOCK_TYPES: BlockType[] = ["text", "todo", "reminder"];
 
 /**
  * Each block is a Y.Map inside an ordered Y.Array, so structure and ordering

@@ -17,7 +17,7 @@ export function readBlocks(doc) {
     const content = map.get("content");
     blocks.push({
       id,
-      type: ["text", "todo", "toggle", "reminder"].includes(rawType) ? rawType : "text",
+      type: ["text", "todo", "reminder"].includes(rawType) ? rawType : "text",
       content: typeof content === "string" ? content : "",
       done: map.get("done") === true,
       createdAt: typeof map.get("createdAt") === "number" ? map.get("createdAt") : 0,

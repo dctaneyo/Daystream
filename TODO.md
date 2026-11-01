@@ -20,17 +20,18 @@ The order is `DESIGN.md` §14. One line per item, ticked as it lands.
 
 ## Next
 
-- [ ] **7. Capture defaults** — the composer names the Note it is writing into, and remembers the
-      last one used per workspace; no picker on the capture path (`UX-01`, `UX-09`). *Partly done:*
-      the Inbox is now visible and sorted first in the Notes list.
+- [x] **7. Capture defaults** — the composer names its destination ("Goes into Inbox" / "Goes into
+      ‹note›"), the Inbox is labelled and sorted first, and nothing on the capture path asks a
+      question (`UX-01`, `UX-09`). *Deferred to #8:* remembering the last Note used, because that
+      only means something once a day view can capture into a chosen Note.
 - [ ] **8. Retire the day/backlog lanes** — Today and Backlog become queries grouped by Note. Own
       change, after #7.
 - [ ] **9. Token + type-scale sweep** — `success`/`warning`/`danger`, no raw palette, no off-scale
       sizes (`UI-02`, `UI-03`). *Started:* `--danger` exists and the toast uses it.
 - [ ] **10. Stream identity pass** — mono day stamp as the signature, accent held to three uses, pass
       the cover test (`VI-04`, `VI-10`).
-- [ ] **11. Menu + format bar** — 44px targets, focus in/return, arrow keys, the line-break control
-      that replaces `Shift+Enter` (`UX-20`, `UX-31`).
+- [ ] **11. Menu + format bar** — the line-break control and 44px format targets have shipped;
+      focus-in/return and arrow keys on the Thing menu are left (`UX-19`, `UX-20`, `UX-31`).
 
 ## Later
 
@@ -41,5 +42,8 @@ The order is `DESIGN.md` §14. One line per item, ticked as it lands.
 
 ## Not doing
 
-Nested Notes, tags, rich text, drag-to-reorder, themes, a Note picker on the capture path, `toggle`,
-and any new UI dependency without a `VI-07` rule.
+Nested Notes, tags, rich text, drag-to-reorder, themes, a Note picker on the capture path, and any new
+UI dependency without a `VI-07` rule.
+
+Removed: the `toggle` type (declared in two readers, behaviour in neither; documents carrying it now
+read back as text).

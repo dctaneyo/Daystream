@@ -546,7 +546,9 @@ export function DailyCanvas({
           />
         </div>
         <p className="mx-auto mt-1.5 w-full px-1 text-[11px] text-muted">
-          Saved on this device instantly. The pill above tells you when it reached the server.
+          {/* Name the destination rather than asking for it (UX-01, UX-09). */}
+          {mode === "note" ? `Goes into ${title}.` : "Goes into your Inbox."}{" "}
+          Saved on this device instantly; the pill above says when it reached the server.
         </p>
       </form>
     </div>

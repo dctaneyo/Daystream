@@ -44,6 +44,24 @@ export function FormatBar({
     });
   };
 
+  /**
+   * `Shift+Enter` is the desktop way to start a second line, and no phone
+   * keyboard offers Shift while typing — so the line break gets a control
+   * (UX-31, UX-32).
+   */
+  const insertLineBreak = () => {
+    const el = targetRef.current;
+    if (!el) return;
+    const start = el.selectionStart ?? el.value.length;
+    const end = el.selectionEnd ?? start;
+    const next = `${el.value.slice(0, start)}\n${el.value.slice(end)}`;
+    onChange(next);
+    requestAnimationFrame(() => {
+      el.focus();
+      el.setSelectionRange(start + 1, start + 1);
+    });
+  };
+
   return (
     <div
       role="toolbar"
@@ -59,13 +77,25 @@ export function FormatBar({
           aria-pressed={taskActive}
           onPointerDown={(event) => event.preventDefault()}
           onClick={onToggleTask}
-          className={`shrink-0 rounded-lg px-2 py-1 text-[11px] font-medium transition ${
+          className={`min-h-11 shrink-0 rounded-lg px-3 text-xs font-medium transition ${
             taskActive ? "bg-accent text-accent-ink" : "text-muted hover:bg-raised hover:text-ink"
           }`}
         >
           Task
         </button>
       )}
+
+      <button
+        type="button"
+        data-format="linebreak"
+        title="Line break"
+        aria-label="Line break"
+        onPointerDown={(event) => event.preventDefault()}
+        onClick={insertLineBreak}
+        className="min-h-11 min-w-11 shrink-0 rounded-lg text-sm text-muted transition hover:bg-raised hover:text-ink"
+      >
+        ↵
+      </button>
 
       {BUTTONS.map((button) => (
         <button
@@ -76,7 +106,7 @@ export function FormatBar({
           aria-label={button.title}
           onPointerDown={(event) => event.preventDefault()}
           onClick={() => apply(button.kind)}
-          className={`shrink-0 rounded-lg px-2 py-1 text-xs text-muted transition hover:bg-raised hover:text-ink ${button.className ?? ""}`}
+          className={`min-h-11 min-w-11 shrink-0 rounded-lg text-xs text-muted transition hover:bg-raised hover:text-ink ${button.className ?? ""}`}
         >
           {button.label}
         </button>
