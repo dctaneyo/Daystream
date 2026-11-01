@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import * as Y from "yjs";
 import { IndexeddbPersistence } from "y-indexeddb";
 import { HocuspocusProvider } from "@hocuspocus/provider";
@@ -152,12 +151,6 @@ export function Scratchpad({ room, userId }: { room: string; userId: string }) {
         </ul>
       )}
 
-      <Link
-        href="/app/backlog"
-        className="mt-2 inline-block text-[11px] text-accent hover:underline"
-      >
-        Open backlog →
-      </Link>
     </section>
   );
 }

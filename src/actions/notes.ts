@@ -36,8 +36,8 @@ export async function createNoteAction(
       workspaceId: workspace.id,
       title: title || "Untitled note",
     });
-    revalidatePath("/app/notes");
-    redirect(`/app/notes/${note.id}`);
+    revalidatePath("/app");
+    redirect("/app");
   } catch (error) {
     // `redirect` throws on purpose; let Next handle it.
     if (error instanceof Error && error.message === "NEXT_REDIRECT") throw error;
@@ -61,8 +61,8 @@ export async function createNoteForDayAction(formData: FormData) {
     day,
   });
 
-  if (day) revalidatePath(`/app/${day}`);
-  redirect(`/app/notes/${note.id}`);
+  revalidatePath("/app");
+  redirect(day ? `/app?d=${day}` : "/app");
 }
 
 export async function renameNoteAction(
@@ -79,19 +79,18 @@ export async function renameNoteAction(
   if (!note?.canManage) return { error: "Only the owner can rename this note." };
 
   await renameNote(noteId, userId, title);
-  revalidatePath(`/app/notes/${noteId}`);
-  revalidatePath("/app/notes");
+  revalidatePath("/app");
   return { ok: true, message: "Renamed." };
 }
 
 export async function deleteNoteAction(formData: FormData) {
   const { userId } = await requireUser();
   const noteId = String(formData.get("noteId") ?? "");
-  if (!noteId) redirect("/app/notes");
+  if (!noteId) redirect("/app");
 
   await deleteNote(noteId, userId);
-  revalidatePath("/app/notes");
-  redirect("/app/notes");
+  revalidatePath("/app");
+  redirect("/app");
 }
 
 export async function shareNoteAction(
@@ -111,7 +110,7 @@ export async function shareNoteAction(
   const result = await addNoteMember(noteId, publicId);
   if (!result.ok) return { error: result.error };
 
-  revalidatePath(`/app/notes/${noteId}`);
+  revalidatePath("/app");
   return { ok: true, message: `Shared with ${result.member.name} (${result.member.publicId}).` };
 }
 
@@ -123,5 +122,5 @@ export async function unshareNoteAction(formData: FormData) {
   if (!(await canManageNote(noteId, userId))) return;
 
   await removeNoteMember(noteId, memberId);
-  revalidatePath(`/app/notes/${noteId}`);
+  revalidatePath("/app");
 }

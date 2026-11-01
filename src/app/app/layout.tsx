@@ -22,7 +22,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   return (
     <div className="flex min-h-dvh flex-col lg:grid lg:h-dvh lg:min-h-0 lg:grid-cols-[236px_1fr] lg:overflow-hidden">
       <aside className="hidden border-r border-edge bg-panel/60 lg:flex lg:min-h-0 lg:flex-col lg:gap-6 lg:overflow-y-auto lg:p-5">
-        <Link href={`/app/${today}`} className="flex items-center gap-2.5 px-1 py-1">
+        <Link href="/app" className="flex items-center gap-2.5 px-1 py-1">
           <Brand />
         </Link>
 
@@ -62,7 +62,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         </div>
 
         <div className="border-t border-edge pt-4">
-          <NavLinks today={today} layout="sidebar" />
+          <NavLinks layout="sidebar" />
         </div>
 
         <div className="mt-auto border-t border-edge pt-4">
@@ -89,7 +89,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
       <div className="flex min-h-0 flex-1 flex-col">
         <header className="sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-edge bg-canvas/85 px-4 py-3 backdrop-blur lg:hidden">
-          <Link href={`/app/${today}`} className="flex items-center gap-2">
+          <Link href="/app" className="flex items-center gap-2">
             <Brand compact />
           </Link>
           <span className="min-w-0 truncate text-xs text-muted">{workspace.name}</span>
@@ -101,7 +101,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           aria-label="Primary"
           className="fixed inset-x-0 bottom-0 z-30 border-t border-edge bg-canvas/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden"
         >
-          <NavLinks today={today} layout="mobile" />
+          <NavLinks layout="mobile" />
         </nav>
       </div>
       <Toaster />

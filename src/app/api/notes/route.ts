@@ -2,21 +2,19 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { resolveActiveWorkspace } from "@/lib/workspaces";
 import { createNote } from "@/lib/notes";
+import { isISODate } from "@/lib/date";
 
-/**
- * Creates an empty Note and hands its id back, so the client can finish the
- * capture it started: choosing a home and typing the first Thing are one action
- * (UX-33).
- */
+/** Creates a Note on a day. The client adds it to the view without navigating. */
 export async function POST(request: Request) {
   const session = await auth();
   const userId = session?.user?.id;
-  if (!userId) {
-    return NextResponse.json({ error: "Not signed in." }, { status: 401 });
-  }
+  if (!userId) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
 
-  const body = (await request.json().catch(() => null)) as { title?: unknown } | null;
+  const body = (await request.json().catch(() => null)) as
+    | { title?: unknown; day?: unknown }
+    | null;
   const title = typeof body?.title === "string" ? body.title.trim().slice(0, 120) : "";
+  const day = typeof body?.day === "string" && isISODate(body.day) ? body.day : undefined;
   const workspace = await resolveActiveWorkspace(userId);
 
   try {
@@ -24,6 +22,7 @@ export async function POST(request: Request) {
       userId,
       workspaceId: workspace.id,
       title: title || "Untitled note",
+      day,
     });
     return NextResponse.json({ id: note.id });
   } catch (error) {

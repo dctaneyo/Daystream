@@ -28,7 +28,7 @@ and as structured as Notion or Twos when you want it to be.
 
 | Job | Success test |
 | --- | --- |
-| **Capture** | Cold open → cursor in the composer in ≤3s; commit with one keystroke |
+| **Capture** | Cold open → cursor in a Note → first Thing typed in ≤3s; one return per Thing |
 | **Review** | Any Note in ≤1 tap; any day in ≤2 taps; any Thing in ≤2 actions |
 | **Share** | Sharing one Note with an existing account is one screen |
 
@@ -214,16 +214,25 @@ is already honoured globally — keep it honoured by every new animation.
 
 ## 6. Information architecture
 
-- **UX-23 One view: a day.** The app has a single primary surface, and it is a date. That view lists
-  the **Notes belonging to that day**; a Note is entered to read or write its Things. Search and
-  Settings are the only other destinations — no daily feed, no backlog, no Notes index, because each
-  of those was a second way to reach the same Things.
-- **UX-24 URL is state.** The day, the open Note, the month and the search query live in the URL, so
-  a view can be reloaded, bookmarked and shared. The day is the entry point: opening the app lands on
-  `/app/<today>` and nothing else.
+- **UX-23 One view: a day.** A single surface, and it is a date: the Notes belonging to that day,
+  each one edited where it sits. A Note is not a destination — its title and its Things are typed
+  straight into the page. Days are a `?d=` parameter, and search, the backlog and the scratchpad
+  open as sheets over the same page. Settings is the only other destination; no feed, no Notes
+  index, no Note page, no search page.
+- **UX-24 URL is state.** The day lives in the URL as `?d=`, written in place with `replaceState`
+  rather than a navigation, so a reload, a bookmark or a shared link lands on the same day without
+  the view being torn down. Opening the app lands on today. Sheet state stays local: a sheet is not
+  a place.
 - **UX-25 Admin is a separate tree.** `/admin` is an operator surface: its own layout, its own
   navigation, never mixed into product chrome.
 - **UX-26 Lenses never nest.** Today can be grouped by Note, but a lens never contains another lens.
+
+---
+
+- **UX-35 The Note is the page.** There is no composer outside a Note and no Note behind a tap: the
+  day is a stack of Notes and the cursor lives in one of them. A line is a Thing; return starts the
+  next one; an empty line takes backspace and is gone. This is the Apple Notes surface with the
+  structure of Twos underneath — the model does the work, not the chrome.
 
 ---
 

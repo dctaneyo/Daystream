@@ -90,7 +90,7 @@ check("admin PIN login", adminLogin.status < 400 && adminLogin.signedIn, `status
 
 const today = new Date().toISOString().slice(0, 10);
 
-const dayPage = await fetch(`${BASE}/app/${today}`, { headers: { cookie: adminLogin.cookies }, redirect: "manual" });
+const dayPage = await fetch(`${BASE}/app`, { headers: { cookie: adminLogin.cookies }, redirect: "manual" });
 const dayHtml = dayPage.status === 200 ? await dayPage.text() : "";
 check("day page renders for admin", dayPage.status === 200 && dayHtml.includes("Daystream"), `status ${dayPage.status}`);
 check(
@@ -99,7 +99,7 @@ check(
 );
 check("keyboard-aware viewport configured", dayHtml.includes("resizes-content"), "interactive-widget");
 
-const anon = await fetch(`${BASE}/app/${today}`, { redirect: "manual" });
+const anon = await fetch(`${BASE}/app`, { redirect: "manual" });
 check("app redirects anonymous users", anon.status === 307 || anon.status === 302, `status ${anon.status}`);
 
 const adminConsole = await fetch(`${BASE}/admin`, { headers: { cookie: adminLogin.cookies }, redirect: "manual" });
@@ -286,12 +286,27 @@ await new Promise((resolve) => {
 });
 check("websocket rejects bad token", rejected || badProviderDoc.getArray("blocks").length === 0);
 
-const searchResponse = await fetch(`${BASE}/app/search?q=Conveyor`, {
+const searchResponse = await fetch(`${BASE}/api/search?q=Conveyor`, {
+  headers: { cookie: adminLogin.cookies },
+});
+const searchBody =
+  searchResponse.status === 200 ? await searchResponse.json().catch(() => ({ hits: [] })) : { hits: [] };
+check(
+  "inline search finds the projected Thing",
+  searchResponse.status === 200 &&
+    (searchBody.hits ?? []).some((hit) => String(hit.content ?? "").includes("Conveyor")),
+  `status ${searchResponse.status}`,
+);
+
+const oldDayRoute = await fetch(`${BASE}/app/${today}`, {
   headers: { cookie: adminLogin.cookies },
   redirect: "manual",
 });
-const searchHtml = searchResponse.status === 200 ? await searchResponse.text() : "";
-check("search finds projected block", searchResponse.status === 200 && searchHtml.includes("Conveyor"), `status ${searchResponse.status}`);
+check(
+  "old day route lands on the one view",
+  oldDayRoute.status === 307 || oldDayRoute.status === 308,
+  `status ${oldDayRoute.status}`,
+);
 
 providerB.destroy();
 providerA.destroy();

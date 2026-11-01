@@ -1,10 +1,6 @@
 import { redirect } from "next/navigation";
-import { todayISO } from "@/lib/date";
 
-/**
- * There is no separate backlog any more: Notes belong to a day, and a Thing is
- * created inside a Note (UX-23, UX-33). Old links land on today.
- */
+/** The backlog is a sheet over the day, not a destination (UX-23). */
 export default function BacklogPage() {
-  redirect(`/app/${todayISO()}`);
+  redirect("/app?sheet=inbox");
 }

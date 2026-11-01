@@ -38,9 +38,10 @@
   names its signature element and passes the cover test (`VI-10`) with the brand hidden at 390×844.
 - New fonts, icon sets, animation libraries or component kits are design decisions, not conveniences:
   they need a rule in `DESIGN.md` and a UX rule served, in the same change (`VI-07`).
-- The app is **one date-dependent view**: `/app/<day>` lists the Notes belonging to that day, and a
-  Note is opened to read or write its Things (`DESIGN.md` UX-23). Do not reintroduce a feed, backlog
-  or Notes-index destination, and never add a way to create a Thing outside a Note (`UX-33`).
+- The app is **one view**: `/app` is the day, its Notes, and the Things typed straight into them
+  (`DESIGN.md` UX-23). Days are a `?d=` parameter, and search, the backlog and the scratchpad are
+  sheets over that view — no Note page, no search page, no feed. A Thing is a line inside a Note,
+  created by pressing return in that Note's body (`UX-33`); never add a composer that is not a Note.
 - Deploys change the code under open tabs: keep the build identity honest (`/api/version`, the
   `daystream-build` meta tag) and never let an update reload in a loop (`DESIGN.md` UX-34).
 - Never use browser primitives for product UI: no `window.confirm`/`alert`/`prompt`, `<select>`,
