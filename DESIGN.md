@@ -46,9 +46,9 @@ merge-conflict UI. Each can arrive later without breaking a rule below; none may
 
 Each principle has a failure test. A rule that cannot be violated is not a rule.
 
-- **UX-01 Capture before structure.** No decision precedes typing. *Fails if* the composer requires
-  a type, Note, or date before text. The app guesses — last-used Note, type Text, day today — and
-  lets the person correct afterwards.
+- **UX-01 No unclaimed structure.** No avoidable decision precedes typing: the type defaults to
+  Text and the day to today. The one decision capture does ask is the home, and it arrives
+  pre-answered (UX-33). *Fails if* a Thing can be created without a Note.
 - **UX-02 The Note is the home.** Every Thing has exactly one Note. Notes are the categorical
   container people navigate; Things are the lines people write.
 - **UX-03 The day is a stamp, not a home.** Every Thing carries the day it belongs to. Days are a
@@ -77,8 +77,8 @@ Workspace
 ```
 
 - **UX-09 One home.** A Thing lives in exactly one Note at a time. There is no orphan state and no
-  "in two places" state. If nothing was chosen, it lands in the Note last used in this workspace,
-  falling back to **Inbox**.
+  "in two places" state. A Thing is created only inside a Note; when nobody has chosen yet, the
+  Inbox answers (UX-10), and the Note used last in this workspace is offered first (UX-33).
 - **UX-10 Inbox always exists.** Every workspace has an Inbox that cannot be deleted. It is the
   answer to "where did it go?" and the reason capture never has to interrupt.
 - **UX-11 Moving a Thing is a Move.** Move changes its Note, its day, or both — one gesture,
@@ -90,6 +90,10 @@ Workspace
 - **UX-30 Access follows the Note.** A Note is the unit of sharing: being added to a Note grants
   its Things and nothing else — not the owner's other Notes, days, or backlog. Membership of a
   workspace and access to a Note are different questions and must stay different.
+- **UX-33 Capture begins with the home.** Every capture starts with one decision: an existing Note,
+  or a new one. It is a single tap, pre-filled with the Note used last in this workspace, and the
+  composer states the home it will write into. *Fails if* a Thing can be created without a Note, if
+  the home is invisible at the moment of typing, or if choosing it costs more than one tap.
 
 **Lenses, not containers.** Today, earlier days, Backlog, Calendar and Search are views over the
 same set of Notes. Adding a lens never adds a place a Thing can live.
@@ -402,6 +406,11 @@ Decision log entries look like:
 > “clean and restrained” had quietly produced the default SaaS palette. Identity now comes from the
 > stream, the mono day stamp and a single accent — not from novelty typefaces or an icon set.
 
+> **2026-11-01 · UX-01, UX-09, UX-33 ·** Reversed the earlier "capture before structure" stance: a
+> Thing cannot exist without a Note, so the home is the first thing capture decides, pre-answered by
+> the last Note used. Silence was the wrong default — it made Inbox look like the product's idea
+> rather than the person's choice.
+
 ## 14. Order of work
 
 Dependency first, then risk, then visibility. Two things gate everything else: people must be able to
@@ -430,8 +439,8 @@ waiting for its own project.
 | 13 | Reminders, or delete the type | a checkbox that promises nothing | ~2 days | medium |
 | 14 | Wikilinks / backlinks | depth that only means something after #8 | ~2 days | medium |
 
-Not on the list, and not to be smuggled in: nested Notes, tags, rich text, drag-to-reorder, themes, a
-Note picker on the capture path, `toggle`, and any new UI dependency without a `VI-07` rule.
+Not on the list, and not to be smuggled in: nested Notes, tags, rich text, drag-to-reorder, themes, and
+any new UI dependency without a `VI-07` rule.
 
 Two cautions. Migrations run at boot (`AGENTS.md`), so `004` must be idempotent, create each
 workspace's Inbox **before** backfilling into it, backfill in one transaction, and only then set

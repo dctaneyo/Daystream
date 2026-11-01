@@ -10,8 +10,14 @@ import { noteRoom } from "@/lib/rooms";
 import { DailyCanvas } from "@/components/DailyCanvas";
 import { NoteSharePanel } from "@/components/NoteSharePanel";
 
-export default async function NotePage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
+export default async function NotePage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ add?: string; task?: string }>;
+}) {
+  const [{ id }, query] = await Promise.all([params, searchParams]);
 
   const session = await auth();
   const userId = session?.user?.id;
@@ -38,6 +44,8 @@ export default async function NotePage({ params }: { params: Promise<{ id: strin
           mode="note"
           date={null}
           notes={notes}
+          pendingDraft={query.add}
+          pendingTask={query.task === "1"}
           title={note.title}
           user={{
             id: userId,

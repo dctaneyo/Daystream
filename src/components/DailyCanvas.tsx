@@ -24,7 +24,27 @@ import { splitTaskPrefix } from "@/lib/format-text";
 import type { CursorMap, Peer } from "@/lib/presence";
 import { collabUrl, fetchCollabToken } from "@/lib/collab-client";
 import { rememberStatus, sharedStatus } from "@/lib/collab-status";
+import { NotePicker } from "@/components/NotePicker";
 import { showToast } from "@/lib/toast";
+
+const lastNoteKey = (workspaceId: string) => `daystream:lastNote:${workspaceId}`;
+
+/** Remembers the home used last in this workspace, so the choice is pre-answered. */
+function readLastNote(workspaceId: string): string | null {
+  try {
+    return window.localStorage.getItem(lastNoteKey(workspaceId));
+  } catch {
+    return null;
+  }
+}
+
+function rememberLastNote(workspaceId: string, noteId: string) {
+  try {
+    window.localStorage.setItem(lastNoteKey(workspaceId), noteId);
+  } catch {
+    // Private mode: remembering is a convenience, not a requirement.
+  }
+}
 
 export function DailyCanvas({
   workspaceId,
@@ -34,6 +54,8 @@ export function DailyCanvas({
   date,
   title,
   notes,
+  pendingDraft,
+  pendingTask,
   user,
 }: {
   workspaceId: string;
@@ -43,6 +65,8 @@ export function DailyCanvas({
   date: string | null;
   title: string;
   notes: Array<{ id: string; title: string }>;
+  pendingDraft?: string;
+  pendingTask?: boolean;
   user: { id: string; name: string };
 }) {
   const router = useRouter();
@@ -62,6 +86,21 @@ export function DailyCanvas({
   const [draftType, setDraftType] = useState<BlockType>("text");
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
+  const [target, setTarget] = useState<{ id: string; title: string } | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
+
+  /** The Note this view is already inside, if any. */
+  const currentNoteId = room.startsWith("note:") ? room.slice("note:".length) : null;
+
+  useEffect(() => {
+    if (target) return;
+    const remembered = currentNoteId ? null : readLastNote(workspaceId);
+    const chosen =
+      (currentNoteId ? notes.find((note) => note.id === currentNoteId) : undefined) ??
+      (remembered ? notes.find((note) => note.id === remembered) : undefined) ??
+      notes[0];
+    if (chosen) setTarget({ id: chosen.id, title: chosen.title });
+  }, [currentNoteId, notes, target, workspaceId]);
 
   const userColor = useMemo(() => colorForUser(user.id), [user.id]);
 
@@ -433,11 +472,39 @@ export function DailyCanvas({
     if (!raw) return;
     const { content, isTask } = splitTaskPrefix(raw);
     if (!content) return;
-    addBlock(content, isTask ? "todo" : draftType);
+
+    // A Thing cannot exist without a home, so no home means no Thing (UX-33).
+    if (!target) {
+      setPickerOpen(true);
+      return;
+    }
+    rememberLastNote(workspaceId, target.id);
+
+    if (!currentNoteId || target.id === currentNoteId) {
+      addBlock(content, isTask ? "todo" : draftType);
+      setDraft("");
+      setDraftType("text");
+      composerRef.current?.focus();
+      return;
+    }
+
+    // The Thing belongs to another Note, so go there with it in hand.
+    const params = new URLSearchParams({ add: content });
+    if (isTask || draftType === "todo") params.set("task", "1");
     setDraft("");
     setDraftType("text");
-    composerRef.current?.focus();
-  }, [addBlock, draft, draftType]);
+    router.push(`/app/notes/${target.id}?${params.toString()}`);
+  }, [addBlock, currentNoteId, draft, draftType, router, target, workspaceId]);
+
+  const consumedDraft = useRef(false);
+
+  /** Arrives from a composer in another view, already owned by this Note. */
+  useEffect(() => {
+    if (!ready || consumedDraft.current || !pendingDraft) return;
+    consumedDraft.current = true;
+    addBlock(pendingDraft, pendingTask ? "todo" : "text");
+    if (currentNoteId) router.replace(`/app/notes/${currentNoteId}`);
+  }, [addBlock, currentNoteId, pendingDraft, pendingTask, ready, router]);
 
   // Horizontal swipe moves between days (mobile).
   const touchStart = useRef<{ x: number; y: number } | null>(null);
@@ -548,6 +615,21 @@ export function DailyCanvas({
         }}
       >
         <div className="mx-auto w-full rounded-2xl border border-edge bg-panel px-2.5 py-2 focus-within:border-accent/60">
+          {/* The home is never implicit (UX-33). */}
+          <div className="flex items-center gap-2 px-0.5 pb-1">
+            <button
+              type="button"
+              onClick={() => setPickerOpen(true)}
+              aria-haspopup="dialog"
+              className="flex min-h-9 max-w-full items-center gap-1 rounded-full border border-edge px-2.5 text-[11px] text-muted"
+            >
+              In
+              <span className="max-w-[10rem] truncate font-medium text-ink">
+                {target?.title ?? "choose a Note"}
+              </span>
+              <span aria-hidden>▾</span>
+            </button>
+          </div>
           <div className="flex items-end gap-2 px-0.5">
             <textarea
               ref={composerRef}
@@ -564,13 +646,7 @@ export function DailyCanvas({
                   submitDraft();
                 }
               }}
-              placeholder={
-                mode === "day"
-                  ? "Add a thing for this day…"
-                  : mode === "backlog"
-                    ? "Add to the backlog…"
-                    : "Add a thing to this note…"
-              }
+              placeholder="Add a thing…"
               className="ds-textarea"
               aria-label="New thing"
               spellCheck
@@ -599,6 +675,39 @@ export function DailyCanvas({
           Saved on this device instantly; the pill above says when it reached the server.
         </p>
       </form>
+
+      <NotePicker
+        open={pickerOpen}
+        notes={notes}
+        selectedId={target?.id ?? null}
+        onSelect={(note) => {
+          setTarget(note);
+          rememberLastNote(workspaceId, note.id);
+          setPickerOpen(false);
+          composerRef.current?.focus();
+        }}
+        onCreate={async (nextTitle) => {
+          const response = await fetch("/api/notes", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ title: nextTitle }),
+          });
+          const body = (await response.json().catch(() => ({}))) as {
+            id?: string;
+            error?: string;
+          };
+          if (!response.ok || !body.id) {
+            showToast({ message: body.error ?? "Couldn't create that Note.", tone: "error" });
+            return;
+          }
+          setTarget({ id: body.id, title: nextTitle });
+          rememberLastNote(workspaceId, body.id);
+          setPickerOpen(false);
+          composerRef.current?.focus();
+          router.refresh();
+        }}
+        onClose={() => setPickerOpen(false)}
+      />
     </div>
   );
 }

@@ -24,10 +24,10 @@ The order is `DESIGN.md` §14. One line per item, ticked as it lands.
       ‹note›"), the Inbox is labelled and sorted first, and nothing on the capture path asks a
       question (`UX-01`, `UX-09`). *Deferred to #8:* remembering the last Note used, because that
       only means something once a day view can capture into a chosen Note.
-- [ ] **8. Retire the day/backlog lanes** — Today and Backlog become queries grouped by Note. Own
-      change, after #7.
-      *Shipped so far:* filing — "Move to Note…" carries a Thing from any view into its Note, and
-      the Notes list counts Things. What is left is making Today a query rather than a second document.
+- [x] **8. Things have a home, and it is a Note** — filing via "Move to Note…" from any view,
+      Thing counts on the Notes list, and capture that starts with the home decision (existing Note
+      or a new one) per `UX-33`. *Remaining:* Today still syncs a day document, so a Thing captured
+      into a Note from Today is not listed there until the day becomes a query over Notes.
 - [ ] **9. Token + type-scale sweep** — `success`/`warning`/`danger`, no raw palette, no off-scale
       sizes (`UI-02`, `UI-03`). *Started:* `--danger` exists and the toast uses it.
 - [ ] **10. Stream identity pass** — mono day stamp as the signature, accent held to three uses, pass
@@ -44,8 +44,8 @@ The order is `DESIGN.md` §14. One line per item, ticked as it lands.
 
 ## Not doing
 
-Nested Notes, tags, rich text, drag-to-reorder, themes, a Note picker on the capture path, and any new
-UI dependency without a `VI-07` rule.
+Nested Notes, tags, rich text, drag-to-reorder, themes, and any new UI dependency without a `VI-07`
+rule.
 
 Removed: the `toggle` type (declared in two readers, behaviour in neither; documents carrying it now
 read back as text).
