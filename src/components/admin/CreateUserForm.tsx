@@ -54,12 +54,12 @@ export function CreateUserForm() {
 
       {state.ok && state.publicId && (
         <div className="mt-3 rounded-lg border border-success/30 bg-success/10 px-3.5 py-3">
-          <p className="text-xs text-emerald-700 dark:text-emerald-200">{state.message}</p>
+          <p className="text-xs text-success">{state.message}</p>
           <p className="mt-2 font-mono text-sm text-ink">
             ID <strong className="tracking-[0.2em]">{state.publicId}</strong> · PIN{" "}
             <strong className="tracking-[0.2em]">{state.pin}</strong>
           </p>
-          <p className="mt-1.5 text-[11px] text-emerald-700/80 dark:text-emerald-200/80">
+          <p className="mt-1.5 text-[11px] text-success/80">
             Share this once. It will not be shown again — reset the PIN if it is lost.
           </p>
         </div>
