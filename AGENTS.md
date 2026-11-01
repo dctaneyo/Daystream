@@ -27,6 +27,12 @@
   when they conflict. Read it before changing any UI, and cite the rule your change serves.
 - The model is Workspace → Note → Thing: a Thing lives in exactly one Note and carries a day, so a
   new lane a Thing can be typed into is a design change, not a feature.
+- **Mobile is the design target**, not the shrunk case (~95% of use is one thumb on a phone): build
+  and check a screen at 390×844 before widening it, and treat anything only complete at `lg` as
+  unfinished.
+- Every capability needs a tap-reachable control, not just a shortcut: phone keyboards have no
+  `Ctrl`/`Cmd`/`Alt`/`Option`/arrows and no usable `Shift`. Ship the on-screen twin with the shortcut
+  (`DESIGN.md` UX-31/UX-32, table in §5.5).
 - If a change needs a rule that isn't written down, add the rule to `DESIGN.md` in the same commit.
 
 ## Pushing

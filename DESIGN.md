@@ -8,6 +8,14 @@ serves is decoration, and decoration loses.
 Read this before touching a screen. If a change needs a rule that is not here, add the rule in the
 same commit — this document grows by use, not by decree.
 
+**Mobile first, absolutely.** About 95% of use is a phone held in one hand; the rest is a tablet or
+a desktop. The 360–430px viewport is therefore the design target, not the fallback case: every
+screen is designed, reviewed and tested at **390×844** before it is widened, and a surface that is
+only complete at `lg` is unfinished. Two consequences run through this document — thumb reach
+decides placement (`UX-05`), and anything a keyboard can do must also be doable with a tap, because
+phone keyboards have no `Ctrl`, `Cmd`, `Alt`, `Option`, arrow keys, or a usable `Shift`
+(`UX-31`, `UX-32`).
+
 ---
 
 ## 1. What Daystream is
@@ -47,8 +55,8 @@ Each principle has a failure test. A rule that cannot be violated is not a rule.
   lens over Notes, never a second place a Thing can live.
 - **UX-04 Honest state.** Never claim saved when the write is only local. *Precedent to keep:*
   "Saved on this device instantly. The pill above tells you when it reached the server."
-- **UX-05 Thumb first.** Primary actions sit in the bottom third; no two-finger gestures; nothing
-  requires precision aiming.
+- **UX-05 Thumb first.** The primary action and the composer live in the bottom third, inside thumb
+  reach; no two-finger gestures; nothing requires precision aiming.
 - **UX-06 Reversible over confirmed.** Undo replaces dialogs for edits. Confirmation is reserved for
   irreversible, wide-blast-radius actions.
 - **UX-07 One word, one thing.** The vocabulary in §4 is law.
@@ -148,11 +156,26 @@ offers itself again.
 | Suspend a person, delete a workspace or account | dialog naming the target and the blast radius |
 | Sign out | none |
 
-### 5.5 Keyboard (UX-19)
+### 5.5 Shortcuts and their controls (UX-19, UX-31, UX-32)
 
-`Enter` commits in the composer. `Shift+Enter` breaks the line. `Esc` leaves editing and keeps the
-text. `Cmd/Ctrl+Enter` converts Text ⇄ Task. `Esc` closes any open menu and returns focus to its
-opener; arrow keys move between menu items. Tab order matches visual order.
+- **UX-19 Keyboard is an accelerator.** Every capability is reachable by touch; the keyboard makes it
+  faster. Tab order matches visual order, and `Esc` closes any open menu and returns focus to its
+  opener.
+- **UX-31 No orphan shortcuts.** A shortcut ships only alongside a visible, touch-reachable control,
+  in the same change. The touch column below may never be empty.
+- **UX-32 No modifier-only capabilities.** Nothing may require a modifier key, hover, right-click, or
+  a drag with no tap alternative — on a phone none of those exist.
+
+| Shortcut | Does | Touch equivalent |
+| --- | --- | --- |
+| `Enter` in the composer | commit the Thing | **Add** button beside the input |
+| `Enter` in a Thing | commit the line | tap outside the line |
+| `Shift+Enter` | line break inside a Thing | **line-break control on the format bar — currently missing** |
+| `Cmd/Ctrl+Enter` | Text ⇄ Task | `⋯` menu → Convert to Text / Task |
+| `Cmd/Ctrl+B`, `I` | bold, italic | format bar buttons |
+| `Esc` while editing | leave editing, keep the text | tap outside |
+| `Esc` on a menu | close it, return focus | tap outside |
+| `Tab`, arrow keys | move focus, walk a menu | sequential tap |
 
 ### 5.6 Touch and pointer (UX-20)
 
@@ -220,6 +243,9 @@ replacing it.
 - **UI-05 Radius.** 6 control · 8 input · 12 card · 16 composer/sheet · full pill. Nothing else.
 - **UI-06 Elevation.** Borders before shadows. One shadow, for overlays only.
 - **UI-07 Dark parity.** Every token is defined in both themes; nothing may exist in one theme only.
+- **UI-11 Breakpoints enhance, never enable.** `sm:`/`md:`/`lg:` may add density or a sidebar; they
+  may never be the only place a destination or a required control appears, and no control may be
+  revealable only by hover. Check 360×740, 390×844, 768×1024 and 1440×900 — in that order.
 
 ---
 
@@ -244,9 +270,10 @@ needs focus and arrow keys) · `Field` (label + hint + error) · `EmptyState` ·
 
 ## 10. Definition of done for any UI change
 
-Four states defined · keyboard path · touch path · both themes · contrast and focus checked · copy
-follows §4 · no new raw colour or off-scale size · the rule served is cited in the change · this
-document updated if a rule changed.
+Designed and checked at 390×844 first, then widened · four states defined · thumb-only touch path ·
+keyboard path · every shortcut has its on-screen twin · both themes · contrast and focus checked ·
+copy follows §4 · no new raw colour or off-scale size · the rule served is cited in the change ·
+this document updated if a rule changed.
 
 ---
 
@@ -300,6 +327,10 @@ pieces of vocabulary debt (`UX-14`, `UI-09`).
    (`UX-14`); `toggle` is a declared type with no behaviour that would render as `toggle`.
 9. `note_members` only has `editor`; there is no read-only sharing, though the UI implies levels
    (`UX-30`).
+10. `Shift+Enter` is the only way to put a second line inside a Thing, and no phone keyboard offers
+    `Shift` mid-typing — multiline Things are desktop-only (`UX-31`, `UX-32`).
+11. The shell is written desktop-first: a fixed `lg` sidebar plus a `lg:hidden` header makes the
+    phone the exception path instead of the base case (`UI-11`, and the unreachable Notes in item 2).
 
 ---
 
@@ -310,3 +341,7 @@ Decision log entries look like:
 
 > **2026-11-01 · UX-02/UX-03 ·** Notes became the home and the day became a stamp, because
 > organisation needs a categorical container while chronology still needs to be addressable.
+
+> **2026-11-01 · doctrine, UX-31/UX-32/UI-11 ·** Mobile became the design target rather than the
+> shrunk case, because ~95% of use is one thumb on a phone. Shortcuts and hover are now explicitly
+> accelerators: no capability may exist only behind a key a phone does not have.
