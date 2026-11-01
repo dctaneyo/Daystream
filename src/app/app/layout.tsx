@@ -7,6 +7,7 @@ import { listWorkspaces, resolveActiveWorkspace } from "@/lib/workspaces";
 import { todayISO } from "@/lib/date";
 import { Brand } from "@/components/Brand";
 import { NavLinks } from "@/components/NavLinks";
+import { Toaster } from "@/components/Toaster";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -91,17 +92,19 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <Link href={`/app/${today}`} className="flex items-center gap-2">
             <Brand compact />
           </Link>
-          <nav className="flex items-center gap-3 text-sm">
-            <Link href="/app/search" className="text-muted hover:text-ink">
-              Search
-            </Link>
-            <Link href="/app/backlog" className="text-muted hover:text-ink">
-              Backlog
-            </Link>
-          </nav>
+          <span className="min-w-0 truncate text-xs text-muted">{workspace.name}</span>
         </header>
-        <div className="flex min-h-0 flex-1 flex-col">{children}</div>
+        <div className="flex min-h-0 flex-1 flex-col pb-[calc(3.5rem+env(safe-area-inset-bottom))] lg:pb-0">
+          {children}
+        </div>
+        <nav
+          aria-label="Primary"
+          className="fixed inset-x-0 bottom-0 z-30 border-t border-edge bg-canvas/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden"
+        >
+          <NavLinks today={today} layout="mobile" />
+        </nav>
       </div>
+      <Toaster />
     </div>
   );
 }

@@ -128,7 +128,7 @@ export function BlockItem({
   const isTodo = block.type === "todo" || block.type === "reminder";
 
   const items: Array<{ label: string; onClick: () => void; danger?: boolean }> = [
-    { label: isTodo ? "Convert to note" : "Convert to task", onClick: onConvert },
+    { label: isTodo ? "Convert to Text" : "Convert to Task", onClick: onConvert },
   ];
   if (mode === "day") {
     items.push({ label: "Move to tomorrow", onClick: () => onMove("tomorrow") });

@@ -274,8 +274,9 @@ public/               manifest, service worker, generated icons
 
 1. **Per-block `Y.Text`** so two people can type inside one Thing character-by-character.
 2. **Wikilinks + backlinks** (`[[Project]]`), resolved during projection into a links table.
-3. **Reminders** — `things.reminder_at` exists; needs notifications and a scheduler.
+3. **Reminders** — needs a `things.reminder_at` column (it does not exist yet), notifications and a
+   scheduler. Until then the `reminder` type behaves as a Task.
 4. **Attachments** — R2/S3 bucket or Postgres large objects, with signed upload URLs.
 5. **Team workspaces** — invites, roles (`workspace_members.role` already exists), shared day views.
-7. **Signup policy** — a toggle/env flag so an admin can close public self-signup.
-6. **Calendar integrations** — read-only Google/Outlook events rendered into the daily timeline.
+6. **Signup policy** — a toggle/env flag so an admin can close public self-signup.
+7. **Calendar integrations** — read-only Google/Outlook events rendered into the daily timeline.

@@ -5,6 +5,14 @@ import { resolveActiveWorkspace } from "@/lib/workspaces";
 import { recentOpenTasks, searchThings } from "@/lib/activity";
 import { formatShortDate } from "@/lib/date";
 
+/** The database's type names are not the interface's words (`UX-14`). */
+const TYPE_LABEL: Record<string, string> = {
+  text: "Text",
+  todo: "Task",
+  reminder: "Task",
+  toggle: "Text",
+};
+
 export const metadata = { title: "Search" };
 export default async function SearchPage({
   searchParams,
@@ -68,7 +76,7 @@ export default async function SearchPage({
             {items.map((item) => (
               <li key={item.id} className="px-3.5 py-2.5 text-sm">
                 <span className="mr-2 text-[11px] uppercase tracking-wide text-muted">
-                  {item.type}
+                  {TYPE_LABEL[item.type] ?? "Text"}
                 </span>
                 <span className={item.is_completed ? "text-muted line-through" : "text-ink"}>
                   {item.content}

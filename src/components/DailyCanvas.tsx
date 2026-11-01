@@ -24,6 +24,7 @@ import { splitTaskPrefix } from "@/lib/format-text";
 import type { CursorMap, Peer } from "@/lib/presence";
 import { collabUrl, fetchCollabToken } from "@/lib/collab-client";
 import { rememberStatus, sharedStatus } from "@/lib/collab-status";
+import { showToast } from "@/lib/toast";
 
 export function DailyCanvas({
   workspaceId,
@@ -264,13 +265,49 @@ export function DailyCanvas({
     [mutate, router],
   );
 
-  const deleteBlock = useCallback(
+  /** Removal without ceremony: used when a move already owns the explanation. */
+  const removeBlock = useCallback(
     (id: string) => {
       mutate((array) => {
         const index = array.toArray().findIndex((map) => map.get("id") === id);
         if (index >= 0) array.delete(index, 1);
       });
       router.refresh();
+    },
+    [mutate, router],
+  );
+
+  /**
+   * A person deleting a line is the one place that needs an escape hatch, so the
+   * removal is kept in memory until the toast expires (UX-18).
+   */
+  const deleteBlock = useCallback(
+    (id: string) => {
+      const captured: { value: { map: Y.Map<unknown>; index: number } | null } = { value: null };
+
+      mutate((array) => {
+        const index = array.toArray().findIndex((map) => map.get("id") === id);
+        if (index < 0) return;
+        captured.value = { map: array.get(index), index };
+        array.delete(index, 1);
+      });
+      router.refresh();
+
+      const removed = captured.value;
+      if (!removed) return;
+
+      showToast({
+        message: "Thing deleted",
+        action: {
+          label: "Undo",
+          run: () => {
+            mutate((array) =>
+              array.insert(Math.min(removed.index, array.length), [removed.map]),
+            );
+            router.refresh();
+          },
+        },
+      });
     },
     [mutate, router],
   );
@@ -319,17 +356,30 @@ export function DailyCanvas({
         await new Promise((resolve) => window.setTimeout(resolve, 250));
       } catch {
         setPendingId(null);
+        showToast({
+          message: "Couldn't move that Thing — it's still here.",
+          tone: "error",
+          action: { label: "Retry", run: () => void moveBlock(block, target) },
+        });
         return;
       } finally {
         socket.provider?.destroy();
         targetDoc.destroy();
       }
 
-      deleteBlock(block.id);
+      removeBlock(block.id);
       setPendingId(null);
       router.refresh();
+      showToast({
+        message:
+          target === "backlog"
+            ? "Moved to the backlog"
+            : target === "tomorrow"
+              ? "Moved to tomorrow"
+              : "Moved to today",
+      });
     },
-    [date, deleteBlock, room, router, workspaceId],
+    [date, removeBlock, room, router, workspaceId],
   );
 
   const submitDraft = useCallback(() => {
