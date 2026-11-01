@@ -50,7 +50,6 @@ export function StatusPill({
         className="flex items-center gap-1.5 rounded-full border border-edge bg-panel px-2.5 py-1 text-[11px] text-muted"
         role="status"
         aria-live="polite"
-        title={LABELS[status]}
       >
         <span className={`h-1.5 w-1.5 rounded-full ${DOT[status]}`} aria-hidden />
         <span className="hidden sm:inline">{LABELS[status]}</span>

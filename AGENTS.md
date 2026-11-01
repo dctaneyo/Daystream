@@ -43,6 +43,9 @@
   or Notes-index destination, and never add a way to create a Thing outside a Note (`UX-33`).
 - Deploys change the code under open tabs: keep the build identity honest (`/api/version`, the
   `daystream-build` meta tag) and never let an update reload in a loop (`DESIGN.md` UX-34).
+- Never use browser primitives for product UI: no `window.confirm`/`alert`/`prompt`, `<select>`,
+  `<dialog>`, native validation bubbles, or `title` tooltips as the only carrier of information.
+  Build or reuse the components in `src/components` instead (`DESIGN.md` UI-13).
 - If a change needs a rule that isn't written down, add the rule to `DESIGN.md` in the same commit.
 
 ## Pushing

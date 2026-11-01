@@ -88,7 +88,6 @@ export function FormatBar({
       <button
         type="button"
         data-format="linebreak"
-        title="Line break"
         aria-label="Line break"
         onPointerDown={(event) => event.preventDefault()}
         onClick={insertLineBreak}
@@ -102,7 +101,6 @@ export function FormatBar({
           key={button.kind}
           type="button"
           data-format={button.kind}
-          title={button.title}
           aria-label={button.title}
           onPointerDown={(event) => event.preventDefault()}
           onClick={() => apply(button.kind)}

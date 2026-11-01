@@ -319,14 +319,20 @@ named, and then defended on every screen.
   `server/blocks.mjs`) — a model change has to be made in both.
 - **UI-10 Overlays.** Every menu, popover and dialog closes on `Esc` and outside click, moves focus
   into itself, and returns focus to its opener.
+- **UI-13 No browser primitives.** Anything a person sees is ours: no `window.confirm`, `alert` or
+  `prompt`, no `<select>`, no native validation bubbles, no `title` tooltips carrying information.
+  Confirmation, menus, pickers, dates, validation and status all come from `src/components`. Native
+  controls are acceptable only where the platform is genuinely better at it — a text field, the
+  on-screen keyboard, native scrolling, the safe area (`VI-11`) — never for chrome.
 
 **Present:** `ds-input`, `ds-textarea`, `ds-button`, `InlineMarkdown`, `FormatBar`, `StatusPill`,
 `CalendarPanel`, `NavLinks`, `DailyCanvas` (day / backlog / note), `NoteComposer`, `NoteSharePanel`,
 `Scratchpad`.
 
-**Missing, in priority order:** Undo/Toast · `ConfirmDialog` · `Menu` (the Thing menu is close; it
-needs focus and arrow keys) · `Field` (label + hint + error) · `EmptyState` · `Skeleton` · `Sheet`
-· `NotePicker` (the §3 default-home control).
+**Present:** `Toast` · `ConfirmDialog` · `NotePicker` · `Menu` (the Thing menu, needs arrow keys).
+
+**Missing, in priority order:** `Field` (label + hint + error, so validation never becomes a browser
+bubble) · `EmptyState` · `Skeleton` · `Sheet` (note and confirm sheets share their shell).
 
 ---
 

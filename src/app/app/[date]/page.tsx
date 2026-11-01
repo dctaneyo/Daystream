@@ -105,7 +105,6 @@ export default async function DayPage({
             <input type="hidden" name="day" value={date} />
             <input
               name="title"
-              required
               maxLength={120}
               placeholder="New Note for this day"
               aria-label="New Note"
