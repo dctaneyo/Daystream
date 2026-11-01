@@ -26,6 +26,8 @@ The order is `DESIGN.md` §14. One line per item, ticked as it lands.
       only means something once a day view can capture into a chosen Note.
 - [ ] **8. Retire the day/backlog lanes** — Today and Backlog become queries grouped by Note. Own
       change, after #7.
+      *Shipped so far:* filing — "Move to Note…" carries a Thing from any view into its Note, and
+      the Notes list counts Things. What is left is making Today a query rather than a second document.
 - [ ] **9. Token + type-scale sweep** — `success`/`warning`/`danger`, no raw palette, no off-scale
       sizes (`UI-02`, `UI-03`). *Started:* `--danger` exists and the toast uses it.
 - [ ] **10. Stream identity pass** — mono day stamp as the signature, accent held to three uses, pass
