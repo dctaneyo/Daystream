@@ -5,6 +5,7 @@ import { listWorkspaces } from "@/lib/workspaces";
 import { createWorkspaceAction } from "@/actions/workspaces";
 import { ChangePinForm } from "@/components/ChangePinForm";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
+import { buildId } from "@/lib/build-id";
 
 export const metadata = { title: "Settings" };
 export default async function SettingsPage() {
@@ -84,6 +85,8 @@ export default async function SettingsPage() {
         Inviting teammates and calendar integration land next. Until then an admin can create
         accounts from the admin console.
       </p>
+
+      <p className="mt-3 font-mono text-[11px] text-muted">Build {buildId()}</p>
     </div>
   );
 }

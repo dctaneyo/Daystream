@@ -1,10 +1,12 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { PwaRegister } from "@/components/PwaRegister";
+import { BuildWatcher } from "@/components/BuildWatcher";
+import { buildId } from "@/lib/build-id";
 import { KeyboardInset } from "@/components/KeyboardInset";
 import { ThemeScript } from "@/components/theme/ThemeScript";
 
-export const metadata: Metadata = {
+const baseMetadata: Metadata = {
   title: {
     default: "Daystream — your day, as a stream",
     template: "%s · Daystream",
@@ -28,6 +30,14 @@ export const metadata: Metadata = {
   formatDetection: { telephone: false, date: false, address: false, email: false },
 };
 
+/**
+ * The running bundle names itself in the document, which is how a stale tab can
+ * compare itself with what the server now serves (UX-34).
+ */
+export function generateMetadata(): Metadata {
+  return { ...baseMetadata, other: { "daystream-build": buildId() } };
+}
+
 export const viewport: Viewport = {
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#fbfbfd" },
@@ -48,6 +58,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <ThemeScript />
         {children}
+        <BuildWatcher />
         <KeyboardInset />
         <PwaRegister />
       </body>

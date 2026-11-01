@@ -144,6 +144,11 @@ The status pill states carry an explicit promise. Copy may change; the promise m
 | Reconnecting… changes saved locally | safe in this browser's storage | other devices can see it |
 | Working offline | this device only | survives clearing site data |
 
+- **UX-34 A session never silently runs an old build.** The running bundle identifies itself, the
+  server states what it serves, and when they differ the app says it is shipping the new build and
+  reloads exactly once. *Fails if* a tab can keep running yesterday's code without saying so, or if
+  the recovery can loop.
+
 ### 5.3 Failure (UX-17)
 
 Errors say what happened and what to do, in the interface's voice. No `catch` that leaves the person

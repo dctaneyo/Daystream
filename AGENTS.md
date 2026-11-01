@@ -41,6 +41,8 @@
 - A Thing cannot exist without a Note: capture starts with the home decision (existing Note or a new
   one), pre-answered by the last Note used, and the composer names it (`DESIGN.md` UX-33). Never add
   a way to create a Thing without a Note.
+- Deploys change the code under open tabs: keep the build identity honest (`/api/version`, the
+  `daystream-build` meta tag) and never let an update reload in a loop (`DESIGN.md` UX-34).
 - If a change needs a rule that isn't written down, add the rule to `DESIGN.md` in the same commit.
 
 ## Pushing
