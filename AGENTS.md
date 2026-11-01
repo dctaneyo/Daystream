@@ -21,6 +21,14 @@
 - Do not enable `output: "standalone"` — it conflicts with the custom server.
 - `db/migrations/*.sql` are append-only; add a new numbered file instead of editing an applied one.
 
+## Design rules
+
+- `DESIGN.md` is the design system: `UX-nn` rules (behaviour) outrank `UI-nn` rules (appearance)
+  when they conflict. Read it before changing any UI, and cite the rule your change serves.
+- The model is Workspace → Note → Thing: a Thing lives in exactly one Note and carries a day, so a
+  new lane a Thing can be typed into is a design change, not a feature.
+- If a change needs a rule that isn't written down, add the rule to `DESIGN.md` in the same commit.
+
 ## Pushing
 
 - Target: `git push origin HEAD:main` (the remote is `https://github.com/dctaneyo/Daystream.git`).
