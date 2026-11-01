@@ -7,8 +7,8 @@ import type { DayNote } from "@/lib/day-view";
 
 /**
  * The backlog sheet must never depend on an id that may not exist. This resolves
- * the workspace's Inbox and creates it if an older workspace predates it, so the
- * sheet always has something to open (UX-09, UX-10).
+ * the Note that holds loose Things — creating it for workspaces older than that
+ * guarantee — so the sheet always has something to open (UX-09, UX-10).
  */
 export async function GET() {
   const session = await auth();
@@ -28,9 +28,9 @@ export async function GET() {
       )
     ).rows[0];
 
-  let inbox = await find();
-  if (!inbox) {
-    inbox = (
+  let backlog = await find();
+  if (!backlog) {
+    backlog = (
       await query<{ id: string; title: string }>(
         `INSERT INTO notes (workspace_id, title, created_by, is_inbox)
          VALUES ($1, 'Inbox', $2, true)
@@ -39,18 +39,18 @@ export async function GET() {
       )
     ).rows[0];
   }
-  if (!inbox) {
-    return NextResponse.json({ error: "No Inbox for this workspace." }, { status: 404 });
+  if (!backlog) {
+    return NextResponse.json({ error: "The backlog could not be opened." }, { status: 404 });
   }
 
   const [members, thingCount] = await Promise.all([
-    listNoteMembers(inbox.id),
-    countThingsInNote(inbox.id),
+    listNoteMembers(backlog.id),
+    countThingsInNote(backlog.id),
   ]);
 
   const body: DayNote = {
-    id: inbox.id,
-    title: inbox.title,
+    id: backlog.id,
+    title: backlog.title,
     thingCount,
     memberCount: members.length,
     isInbox: true,

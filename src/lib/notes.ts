@@ -103,8 +103,8 @@ export async function listNotesForDay(userId: string, day: string): Promise<Note
                      WHERE wm.workspace_id = n.workspace_id AND wm.user_id = $1) AS can_manage
        FROM notes n
        JOIN workspaces w ON w.id = n.workspace_id
-      WHERE n.day = $2::date AND ${VISIBLE}
-      ORDER BY n.is_inbox DESC, n.created_at ASC`,
+      WHERE n.day = $2::date AND NOT n.is_inbox AND ${VISIBLE}
+      ORDER BY n.created_at ASC`,
     [userId, day],
   );
   return rows.map((row) => ({

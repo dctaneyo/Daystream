@@ -12,7 +12,7 @@ import { backlogRoom } from "@/lib/rooms";
 import { showToast } from "@/lib/toast";
 import type { DayNote } from "@/lib/day-view";
 
-type BacklogTab = "inbox" | "scratchpad";
+type BacklogTab = "things" | "scratchpad";
 
 function CalendarIcon() {
   return (
@@ -63,11 +63,11 @@ export function DayHome({
   const [notes, setNotes] = useState<DayNote[]>(initialNotes);
   const [status, setStatus] = useState<ConnectionStatus>("connecting");
   const [backlogOpen, setBacklogOpen] = useState(initialSheet === "backlog");
-  const [backlogTab, setBacklogTab] = useState<BacklogTab>("inbox");
-  const [inboxNote, setInboxNote] = useState<DayNote | null>(null);
-  const [inboxLoading, setInboxLoading] = useState(false);
-  const [inboxError, setInboxError] = useState<string | null>(null);
-  const [inboxAttempt, setInboxAttempt] = useState(0);
+  const [backlogTab, setBacklogTab] = useState<BacklogTab>("things");
+  const [backlogNote, setBacklogNote] = useState<DayNote | null>(null);
+  const [backlogLoading, setBacklogLoading] = useState(false);
+  const [backlogError, setBacklogError] = useState<string | null>(null);
+  const [backlogAttempt, setBacklogAttempt] = useState(0);
   const [monthOpen, setMonthOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -90,7 +90,7 @@ export function DayHome({
   useEffect(() => {
     const openSearch = () => setSearchOpen(true);
     const openBacklog = () => {
-      setBacklogTab("inbox");
+      setBacklogTab("things");
       setBacklogOpen(true);
     };
     window.addEventListener("daystream:search", openSearch);
@@ -101,28 +101,28 @@ export function DayHome({
     };
   }, []);
 
-  // The Inbox is resolved server-side, so a missing id can never strand the sheet.
+  // The backlog resolves server-side, so a missing id can never strand the sheet.
   useEffect(() => {
-    if (!backlogOpen || backlogTab !== "inbox" || inboxNote) return;
+    if (!backlogOpen || backlogTab !== "things" || backlogNote) return;
     let cancelled = false;
-    setInboxLoading(true);
-    setInboxError(null);
+    setBacklogLoading(true);
+    setBacklogError(null);
     void (async () => {
       try {
-        const response = await fetch("/api/inbox");
+        const response = await fetch("/api/backlog");
         if (!response.ok) throw new Error();
         const body = (await response.json()) as DayNote;
-        if (!cancelled) setInboxNote(body);
+        if (!cancelled) setBacklogNote(body);
       } catch {
-        if (!cancelled) setInboxError("Couldn't open the Inbox.");
+        if (!cancelled) setBacklogError("Couldn't open the backlog.");
       } finally {
-        if (!cancelled) setInboxLoading(false);
+        if (!cancelled) setBacklogLoading(false);
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [backlogOpen, backlogTab, inboxNote, inboxAttempt]);
+  }, [backlogAttempt, backlogNote, backlogOpen, backlogTab]);
 
   /** A Note is made by a control, not by filling in a form at the bottom. */
   const createNote = useCallback(async () => {
@@ -288,7 +288,7 @@ export function DayHome({
 
       <Sheet open={backlogOpen} title="Backlog" onClose={() => setBacklogOpen(false)}>
         <div className="mb-3 flex gap-1 rounded-lg bg-raised p-1">
-          {(["inbox", "scratchpad"] as const).map((tab) => (
+          {(["things", "scratchpad"] as const).map((tab) => (
             <button
               key={tab}
               type="button"
@@ -298,35 +298,34 @@ export function DayHome({
                 backlogTab === tab ? "bg-canvas text-ink shadow-sm" : "text-muted hover:text-ink"
               }`}
             >
-              {tab === "inbox" ? "Inbox" : "Scratchpad"}
+              {tab === "things" ? "Things" : "Scratchpad"}
             </button>
           ))}
         </div>
 
-        {backlogTab === "inbox" ? (
-          inboxNote ? (
+        {backlogTab === "things" ? (
+          backlogNote ? (
             <>
-              <p className="mb-3 text-xs leading-relaxed text-muted">
-                Things with no day yet. Everything here lives in your Inbox.
-              </p>
+              <p className="mb-3 text-xs leading-relaxed text-muted">Things with no day yet.</p>
               <NoteSurface
-                note={inboxNote}
+                note={backlogNote}
                 user={user}
+                showTitle={false}
                 onStatus={setStatus}
                 onDeleted={() => {
-                  setInboxNote(null);
+                  setBacklogNote(null);
                   setBacklogOpen(false);
                 }}
               />
             </>
-          ) : inboxError ? (
+          ) : backlogError ? (
             <div className="flex flex-col items-start gap-2 py-6">
-              <p className="text-sm text-muted">{inboxError}</p>
+              <p className="text-sm text-muted">{backlogError}</p>
               <button
                 type="button"
                 onClick={() => {
-                  setInboxError(null);
-                  setInboxAttempt((attempt) => attempt + 1);
+                  setBacklogError(null);
+                  setBacklogAttempt((attempt) => attempt + 1);
                 }}
                 className="min-h-10 rounded-lg border border-edge px-3 text-xs text-ink hover:border-accent/40"
               >
@@ -334,7 +333,9 @@ export function DayHome({
               </button>
             </div>
           ) : (
-            <p className="py-4 text-sm text-muted">{inboxLoading ? "Opening your Inbox…" : ""}</p>
+            <p className="py-4 text-sm text-muted">
+              {backlogLoading ? "Opening your backlog…" : ""}
+            </p>
           )
         ) : (
           <Scratchpad room={backlogRoom(workspaceId)} userId={user.id} />

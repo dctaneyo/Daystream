@@ -32,12 +32,15 @@ export function NoteSurface({
   onDeleted,
   onStatus,
   autoFocus = false,
+  showTitle = true,
 }: {
   note: DayNote;
   user: { id: string; name: string };
   onDeleted: (noteId: string) => void;
   onStatus: (status: ConnectionStatus) => void;
   autoFocus?: boolean;
+  /** The backlog has no title of its own, so it shows only its Things. */
+  showTitle?: boolean;
 }) {
   const room = useMemo(() => noteRoom(note.id), [note.id]);
 
@@ -241,6 +244,8 @@ export function NoteSurface({
 
   return (
     <section data-note-id={note.id} className="group/note">
+      {showTitle && (
+        <>
       <div className="flex items-start gap-2">
         <textarea
           ref={titleRef}
@@ -310,6 +315,8 @@ export function NoteSurface({
       <p className="mt-0.5 text-[11px] text-muted">
         {note.sharedWithMe ? "Shared with you" : `${blocks.length} ${blocks.length === 1 ? "Thing" : "Things"}`}
       </p>
+        </>
+      )}
 
       <div className="mt-2 flex flex-col">
         {blocks.map((block) => (

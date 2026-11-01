@@ -79,8 +79,11 @@ Workspace
 - **UX-09 One home.** A Thing lives in exactly one Note at a time. There is no orphan state and no
   "in two places" state. A Thing is created only inside a Note; when nobody has chosen yet, the
   Inbox answers (UX-10), and the Note used last in this workspace is offered first (UX-33).
-- **UX-10 Inbox always exists.** Every workspace has an Inbox that cannot be deleted. It is the
-  answer to "where did it go?" and the reason capture never has to interrupt.
+- **UX-10 Inbox always exists, and is never shown.** Every workspace has an Inbox Note that cannot
+  be deleted: it is the answer to "where did it go?" and the reason capture never has to
+  interrupt. It is structure, not a surface — no tab, label, route or endpoint carries the word.
+  Loose Things are written and read under **Backlog**, and the Inbox never appears in a day's list
+  of Notes.
 - **UX-11 Moving a Thing is a Move.** Move changes its Note, its day, or both — one gesture,
   undoable, never a duplicate. `UX-06` applies: no confirmation, an undo instead.
 - **UX-12 Creating a Note is cheap.** One action, a title, nothing else required. A Note is a shelf,
