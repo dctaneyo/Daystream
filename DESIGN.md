@@ -146,8 +146,10 @@ The status pill states carry an explicit promise. Copy may change; the promise m
 
 - **UX-34 A session never silently runs an old build.** The running bundle identifies itself, the
   server states what it serves, and when they differ the app says it is shipping the new build and
-  reloads exactly once. *Fails if* a tab can keep running yesterday's code without saying so, or if
-  the recovery can loop.
+  reloads exactly once. The comparison runs on load, when the tab comes back into view, and on every
+  realtime reconnect — because a deploy is what ends the socket, so the reconnect is the earliest
+  honest notice. *Fails if* a tab can keep running yesterday's code without saying so, or if the
+  recovery can loop.
 
 ### 5.3 Failure (UX-17)
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { registerBuildCheck } from "@/lib/build-check";
 
 const POLL_MS = 60_000;
 const SPLASH_MS = 900;
@@ -34,6 +35,13 @@ export function BuildWatcher() {
       // Offline: the connection pill already says so.
     }
   }, []);
+
+  // The socket reconnects the instant a deploy replaces the server, so that is
+  // the fastest truthful moment to compare builds (UX-34).
+  useEffect(() => {
+    registerBuildCheck(() => void check());
+    return () => registerBuildCheck(null);
+  }, [check]);
 
   useEffect(() => {
     void check();

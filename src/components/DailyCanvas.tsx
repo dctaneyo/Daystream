@@ -25,6 +25,7 @@ import type { CursorMap, Peer } from "@/lib/presence";
 import { collabUrl, fetchCollabToken } from "@/lib/collab-client";
 import { rememberStatus, sharedStatus } from "@/lib/collab-status";
 import { NotePicker } from "@/components/NotePicker";
+import { runBuildCheck } from "@/lib/build-check";
 import { showToast } from "@/lib/toast";
 
 const lastNoteKey = (workspaceId: string) => `daystream:lastNote:${workspaceId}`;
@@ -138,11 +139,14 @@ export function DailyCanvas({
           onConnect: () => {
             settled = true;
             applyStatus("connected");
+            // A reconnect usually means the server was just replaced.
+            runBuildCheck();
           },
           onSynced: () => {
             settled = true;
             applyStatus("connected");
             setReady(true);
+            runBuildCheck();
           },
           onDisconnect: () => {
             applyStatus(navigator.onLine ? "reconnecting" : "offline");
