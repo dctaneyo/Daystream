@@ -6,21 +6,10 @@ import { usePathname } from "next/navigation";
 const items = [
   {
     href: "/app/__today__",
-    label: "Daily feed",
-    short: "Today",
-    matcher: (path: string) => /^\/app\/\d{4}-\d{2}-\d{2}$/.test(path),
-  },
-  {
-    href: "/app/backlog",
-    label: "Backlog",
-    short: "Backlog",
-    matcher: (path: string) => path === "/app/backlog",
-  },
-  {
-    href: "/app/notes",
-    label: "Notes",
-    short: "Notes",
-    matcher: (path: string) => path.startsWith("/app/notes"),
+    label: "Day",
+    short: "Day",
+    matcher: (path: string) =>
+      /^\/app\/\d{4}-\d{2}-\d{2}$/.test(path) || path.startsWith("/app/notes"),
   },
   {
     href: "/app/search",
@@ -37,16 +26,16 @@ const items = [
 ];
 
 /**
- * One definition, two shapes: a sidebar on wide screens and the phone's primary
- * bar. Keeping them in one list is what stops a destination from existing on
- * desktop and vanishing on mobile (UI-11).
+ * The app has one view (a day) plus two utilities, so navigation says exactly
+ * that. One definition, two shapes: sidebar on wide screens, bar on the phone
+ * (UX-23, UI-11).
  */
 export function NavLinks({ today, layout }: { today: string; layout: "sidebar" | "mobile" }) {
   const pathname = usePathname() ?? "";
 
   if (layout === "mobile") {
     return (
-      <ul className="grid grid-cols-5">
+      <ul className="grid grid-cols-3">
         {items.map((item) => {
           const active = item.matcher(pathname);
           return (

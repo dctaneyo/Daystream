@@ -1,34 +1,10 @@
 import { redirect } from "next/navigation";
-import { auth } from "@/auth";
-import { resolveActiveWorkspace } from "@/lib/workspaces";
-import { listNoteChoices } from "@/lib/notes";
-import { backlogRoom } from "@/lib/rooms";
-import { DailyCanvas } from "@/components/DailyCanvas";
+import { todayISO } from "@/lib/date";
 
-export const metadata = { title: "Backlog" };
-export default async function BacklogPage() {
-  const session = await auth();
-  const userId = session?.user?.id;
-  if (!userId) redirect("/login");
-
-  const workspace = await resolveActiveWorkspace(userId);
-  const notes = await listNoteChoices(userId);
-
-  return (
-    <main className="flex min-h-0 flex-col">
-      <DailyCanvas
-        workspaceId={workspace.id}
-        workspaceName={workspace.name}
-        room={backlogRoom(workspace.id)}
-        mode="backlog"
-        date={null}
-        title="Backlog"
-        notes={notes}
-        user={{
-          id: userId,
-          name: session.user.name ?? session.user.email ?? "You",
-        }}
-      />
-    </main>
-  );
+/**
+ * There is no separate backlog any more: Notes belong to a day, and a Thing is
+ * created inside a Note (UX-23, UX-33). Old links land on today.
+ */
+export default function BacklogPage() {
+  redirect(`/app/${todayISO()}`);
 }

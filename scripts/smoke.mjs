@@ -94,10 +94,8 @@ const dayPage = await fetch(`${BASE}/app/${today}`, { headers: { cookie: adminLo
 const dayHtml = dayPage.status === 200 ? await dayPage.text() : "";
 check("day page renders for admin", dayPage.status === 200 && dayHtml.includes("Daystream"), `status ${dayPage.status}`);
 check(
-  "composer exposes formatting toolbar",
-  dayHtml.includes('aria-label="Format text"') &&
-    dayHtml.includes('data-format="bold"') &&
-    dayHtml.includes('data-format="task"'),
+  "day view lists the Notes for that day",
+  dayHtml.includes('data-day-notes="true"') && dayHtml.includes('aria-label="New Note"'),
 );
 check("keyboard-aware viewport configured", dayHtml.includes("resizes-content"), "interactive-widget");
 

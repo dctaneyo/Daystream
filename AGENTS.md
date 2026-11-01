@@ -38,9 +38,9 @@
   names its signature element and passes the cover test (`VI-10`) with the brand hidden at 390×844.
 - New fonts, icon sets, animation libraries or component kits are design decisions, not conveniences:
   they need a rule in `DESIGN.md` and a UX rule served, in the same change (`VI-07`).
-- A Thing cannot exist without a Note: capture starts with the home decision (existing Note or a new
-  one), pre-answered by the last Note used, and the composer names it (`DESIGN.md` UX-33). Never add
-  a way to create a Thing without a Note.
+- The app is **one date-dependent view**: `/app/<day>` lists the Notes belonging to that day, and a
+  Note is opened to read or write its Things (`DESIGN.md` UX-23). Do not reintroduce a feed, backlog
+  or Notes-index destination, and never add a way to create a Thing outside a Note (`UX-33`).
 - Deploys change the code under open tabs: keep the build identity honest (`/api/version`, the
   `daystream-build` meta tag) and never let an update reload in a loop (`DESIGN.md` UX-34).
 - If a change needs a rule that isn't written down, add the rule to `DESIGN.md` in the same commit.

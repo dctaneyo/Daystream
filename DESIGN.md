@@ -214,11 +214,13 @@ is already honoured globally — keep it honoured by every new animation.
 
 ## 6. Information architecture
 
-- **UX-23 Four destinations, all widths.** At most four primary destinations, every one reachable at
-  every breakpoint. Recommended: **Notes, Today, Search, Settings** — with Backlog and Calendar as
-  filters and panels inside Today, never as extra destinations.
-- **UX-24 URL is state.** The open Note, the day, the month and the search query live in the URL, so
-  a view can be reloaded, bookmarked and shared.
+- **UX-23 One view: a day.** The app has a single primary surface, and it is a date. That view lists
+  the **Notes belonging to that day**; a Note is entered to read or write its Things. Search and
+  Settings are the only other destinations — no daily feed, no backlog, no Notes index, because each
+  of those was a second way to reach the same Things.
+- **UX-24 URL is state.** The day, the open Note, the month and the search query live in the URL, so
+  a view can be reloaded, bookmarked and shared. The day is the entry point: opening the app lands on
+  `/app/<today>` and nothing else.
 - **UX-25 Admin is a separate tree.** `/admin` is an operator surface: its own layout, its own
   navigation, never mixed into product chrome.
 - **UX-26 Lenses never nest.** Today can be grouped by Note, but a lens never contains another lens.
@@ -417,6 +419,10 @@ Decision log entries look like:
 > Thing cannot exist without a Note, so the home is the first thing capture decides, pre-answered by
 > the last Note used. Silence was the wrong default — it made Inbox look like the product's idea
 > rather than the person's choice.
+
+> **2026-11-01 · UX-23 ·** Collapsed the product to one date-dependent view. A day lists its Notes; a
+> Note is entered to add Things. The daily feed, the backlog and the Notes index each answered a
+> question the day could answer, so they were removed rather than reorganised.
 
 ## 14. Order of work
 

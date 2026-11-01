@@ -83,6 +83,45 @@ export async function listNotes(userId: string, limit = 200): Promise<NoteSummar
   }));
 }
 
+/**
+ * The one view of the app: the Notes belonging to a day. Distinct from
+ * `listNotes` on purpose — that one answers "what do I have", this answers
+ * "what is today" (UX-23).
+ */
+export async function listNotesForDay(userId: string, day: string): Promise<NoteSummary[]> {
+  const { rows } = await query<NoteRow>(
+    `SELECT n.id,
+            n.workspace_id,
+            w.name AS workspace_name,
+            n.title,
+            n.created_by,
+            n.updated_at,
+            n.is_inbox,
+            (SELECT count(*) FROM note_members m WHERE m.note_id = n.id) AS member_count,
+            (SELECT count(*) FROM things t WHERE t.note_id = n.id) AS thing_count,
+            EXISTS (SELECT 1 FROM workspace_members wm
+                     WHERE wm.workspace_id = n.workspace_id AND wm.user_id = $1) AS can_manage
+       FROM notes n
+       JOIN workspaces w ON w.id = n.workspace_id
+      WHERE n.day = $2::date AND ${VISIBLE}
+      ORDER BY n.is_inbox DESC, n.created_at ASC`,
+    [userId, day],
+  );
+  return rows.map((row) => ({
+    id: row.id,
+    workspaceId: row.workspace_id,
+    workspaceName: row.workspace_name,
+    title: row.title,
+    createdBy: row.created_by,
+    canManage: row.can_manage,
+    sharedWithMe: !row.can_manage,
+    isInbox: row.is_inbox,
+    updatedAt: row.updated_at,
+    memberCount: Number(row.member_count),
+    thingCount: Number(row.thing_count),
+  }));
+}
+
 export async function getNoteForUser(noteId: string, userId: string): Promise<NoteAccess | null> {
   const { rows } = await query<NoteRow>(
     `SELECT n.id,
@@ -119,15 +158,17 @@ export async function createNote(input: {
   userId: string;
   workspaceId: string;
   title: string;
+  /** The day this Note belongs to; today when omitted. */
+  day?: string;
 }): Promise<{ id: string }> {
   const title = input.title.trim().slice(0, 120) || "Untitled note";
   const { rows } = await query<{ id: string }>(
-    `INSERT INTO notes (workspace_id, title, created_by)
-     SELECT $1, $2, $3
+    `INSERT INTO notes (workspace_id, title, created_by, day)
+     SELECT $1, $2, $3, COALESCE($4::date, CURRENT_DATE)
       WHERE EXISTS (SELECT 1 FROM workspace_members
                      WHERE workspace_id = $1 AND user_id = $3)
      RETURNING id`,
-    [input.workspaceId, title, input.userId],
+    [input.workspaceId, title, input.userId, input.day ?? null],
   );
   const created = rows[0];
   if (!created) throw new Error("You are not a member of that workspace.");

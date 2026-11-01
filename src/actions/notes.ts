@@ -46,6 +46,25 @@ export async function createNoteAction(
   }
 }
 
+/** Creates a Note inside a day and opens it, which is the only way in (UX-23). */
+export async function createNoteForDayAction(formData: FormData) {
+  const { userId } = await requireUser();
+  const title = String(formData.get("title") ?? "").trim();
+  const rawDay = String(formData.get("day") ?? "").trim();
+  const day = /^\d{4}-\d{2}-\d{2}$/.test(rawDay) ? rawDay : undefined;
+
+  const workspace = await resolveActiveWorkspace(userId);
+  const note = await createNote({
+    userId,
+    workspaceId: workspace.id,
+    title: title || "Untitled note",
+    day,
+  });
+
+  if (day) revalidatePath(`/app/${day}`);
+  redirect(`/app/notes/${note.id}`);
+}
+
 export async function renameNoteAction(
   _previous: ActionState,
   formData: FormData,

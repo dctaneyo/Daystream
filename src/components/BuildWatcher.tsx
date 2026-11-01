@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { registerBuildCheck } from "@/lib/build-check";
 
-const POLL_MS = 60_000;
 const SPLASH_MS = 900;
 const STUCK_MS = 5000;
 
@@ -43,18 +42,23 @@ export function BuildWatcher() {
     return () => registerBuildCheck(null);
   }, [check]);
 
+  /**
+   * No timer. The check runs on load, when the tab comes back into view, when
+   * the network returns, and on every realtime reconnect — which is what a
+   * deploy actually produces (UX-34).
+   */
   useEffect(() => {
     void check();
-    const timer = window.setInterval(() => void check(), POLL_MS);
     const onWake = () => {
       if (document.visibilityState === "visible") void check();
     };
     document.addEventListener("visibilitychange", onWake);
     window.addEventListener("online", onWake);
+    window.addEventListener("focus", onWake);
     return () => {
-      window.clearInterval(timer);
       document.removeEventListener("visibilitychange", onWake);
       window.removeEventListener("online", onWake);
+      window.removeEventListener("focus", onWake);
     };
   }, [check]);
 
