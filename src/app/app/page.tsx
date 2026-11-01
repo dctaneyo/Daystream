@@ -32,8 +32,9 @@ export default async function HomePage({
     <DayHome
       initialDay={day}
       initialNotes={view.notes}
-      initialInboxId={view.inboxId}
-      initialSheet={params.sheet === "inbox" ? "inbox" : null}
+      initialSheet={
+        params.sheet === "backlog" || params.sheet === "inbox" ? "backlog" : null
+      }
       workspaceId={workspace.id}
       user={{
         id: userId,

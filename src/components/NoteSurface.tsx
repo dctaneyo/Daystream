@@ -52,6 +52,7 @@ export function NoteSurface({
   const docRef = useRef<Y.Doc | null>(null);
   const providerRef = useRef<HocuspocusProvider | null>(null);
   const inputs = useRef(new Map<string, HTMLTextAreaElement>());
+  const titleRef = useRef<HTMLTextAreaElement | null>(null);
   const focusRef = useRef<string | null>(autoFocus ? "__first__" : null);
 
   useEffect(() => {
@@ -196,7 +197,7 @@ export function NoteSurface({
       if (!ready) return;
       focusRef.current = null;
       const last = blocks[blocks.length - 1];
-      const el = last ? inputs.current.get(last.id) : undefined;
+      const el = last ? inputs.current.get(last.id) : titleRef.current;
       el?.focus();
       el?.setSelectionRange(el.value.length, el.value.length);
       return;
@@ -242,6 +243,7 @@ export function NoteSurface({
     <section data-note-id={note.id} className="group/note">
       <div className="flex items-start gap-2">
         <textarea
+          ref={titleRef}
           value={title}
           rows={1}
           onChange={(event) => {

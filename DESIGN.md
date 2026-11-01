@@ -232,7 +232,11 @@ is already honoured globally — keep it honoured by every new animation.
 - **UX-35 The Note is the page.** There is no composer outside a Note and no Note behind a tap: the
   day is a stack of Notes and the cursor lives in one of them. A line is a Thing; return starts the
   next one; an empty line takes backspace and is gone. This is the Apple Notes surface with the
-  structure of Twos underneath — the model does the work, not the chrome.
+  structure of Twos underneath — the model does the work, not the chrome. A Note is made by one
+  control in the header, never by a form waiting at the bottom of the page.
+- **UX-36 The month is a sheet.** A calendar control sits with the date it changes and opens a
+  month over the page: the month's shape, a dot per day that has writing, and one tap to land on it.
+  Jumping months is an arrow, never a URL, and picking a day does not reload the view.
 
 ---
 

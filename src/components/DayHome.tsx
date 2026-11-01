@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { NoteSurface } from "./NoteSurface";
+import { MonthSheet } from "./MonthSheet";
 import { SearchOverlay, type SearchHit } from "./SearchOverlay";
 import { Sheet } from "./Sheet";
 import { StatusPill, type ConnectionStatus } from "./StatusPill";
@@ -11,37 +12,64 @@ import { backlogRoom } from "@/lib/rooms";
 import { showToast } from "@/lib/toast";
 import type { DayNote } from "@/lib/day-view";
 
-type SheetName = "inbox" | "scratchpad" | null;
+type BacklogTab = "inbox" | "scratchpad";
+
+function CalendarIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden className="h-[18px] w-[18px]" fill="none">
+      <rect x="3.5" y="5" width="17" height="15.5" rx="2.5" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M3.5 9.5h17M8 3.5v3M16 3.5v3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function SearchIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden className="h-[18px] w-[18px]" fill="none">
+      <circle cx="10.5" cy="10.5" r="6.5" stroke="currentColor" strokeWidth="1.5" />
+      <path d="m15.5 15.5 4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function PlusIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden className="h-[18px] w-[18px]" fill="none">
+      <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
 
 /**
  * The app's only view: one day, its Notes, and the Things typed straight into
- * them. Day changes, search and the backlog all happen here — no route change
- * ever takes the page away (UX-23).
+ * them. Day changes, search, the month and the backlog all happen here — no
+ * route change ever takes the page away (UX-23).
  */
 export function DayHome({
   initialDay,
   initialNotes,
-  initialInboxId,
   workspaceId,
   user,
   initialSheet = null,
 }: {
   initialDay: string;
   initialNotes: DayNote[];
-  initialInboxId: string | null;
   workspaceId: string;
   user: { id: string; name: string };
-  initialSheet?: SheetName;
+  initialSheet?: "backlog" | null;
 }) {
   const today = todayISO();
   const [day, setDay] = useState(initialDay);
   const [notes, setNotes] = useState<DayNote[]>(initialNotes);
-  const [inboxId, setInboxId] = useState<string | null>(initialInboxId);
   const [status, setStatus] = useState<ConnectionStatus>("connecting");
-  const [sheet, setSheet] = useState<SheetName>(initialSheet);
+  const [backlogOpen, setBacklogOpen] = useState(initialSheet === "backlog");
+  const [backlogTab, setBacklogTab] = useState<BacklogTab>("inbox");
   const [inboxNote, setInboxNote] = useState<DayNote | null>(null);
+  const [inboxLoading, setInboxLoading] = useState(false);
+  const [inboxError, setInboxError] = useState<string | null>(null);
+  const [inboxAttempt, setInboxAttempt] = useState(0);
+  const [monthOpen, setMonthOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
-  const [newTitle, setNewTitle] = useState("");
   const [creating, setCreating] = useState(false);
   const [focusNoteId, setFocusNoteId] = useState<string | null>(null);
 
@@ -51,75 +79,87 @@ export function DayHome({
     try {
       const response = await fetch(`/api/day?d=${next}`);
       if (!response.ok) throw new Error();
-      const body = (await response.json()) as { notes?: DayNote[]; inboxId?: string | null };
+      const body = (await response.json()) as { notes?: DayNote[] };
       setNotes(body.notes ?? []);
-      setInboxId(body.inboxId ?? null);
     } catch {
       showToast({ message: "Couldn't load that day.", tone: "error" });
     }
   }, []);
 
-  // The bottom bar's Search is a control for this view, not a destination.
+  // The chrome dispatches; the view owns the state. Nothing navigates.
   useEffect(() => {
-    const open = () => setSearchOpen(true);
-    window.addEventListener("daystream:search", open);
-    return () => window.removeEventListener("daystream:search", open);
+    const openSearch = () => setSearchOpen(true);
+    const openBacklog = () => {
+      setBacklogTab("inbox");
+      setBacklogOpen(true);
+    };
+    window.addEventListener("daystream:search", openSearch);
+    window.addEventListener("daystream:backlog", openBacklog);
+    return () => {
+      window.removeEventListener("daystream:search", openSearch);
+      window.removeEventListener("daystream:backlog", openBacklog);
+    };
   }, []);
 
+  // The Inbox is resolved server-side, so a missing id can never strand the sheet.
   useEffect(() => {
-    if (sheet !== "inbox" || !inboxId || inboxNote?.id === inboxId) return;
+    if (!backlogOpen || backlogTab !== "inbox" || inboxNote) return;
+    let cancelled = false;
+    setInboxLoading(true);
+    setInboxError(null);
     void (async () => {
       try {
-        const response = await fetch(`/api/notes/${inboxId}`);
+        const response = await fetch("/api/inbox");
         if (!response.ok) throw new Error();
         const body = (await response.json()) as DayNote;
-        setInboxNote(body);
+        if (!cancelled) setInboxNote(body);
       } catch {
-        showToast({ message: "Couldn't open the backlog.", tone: "error" });
+        if (!cancelled) setInboxError("Couldn't open the Inbox.");
+      } finally {
+        if (!cancelled) setInboxLoading(false);
       }
     })();
-  }, [inboxId, inboxNote?.id, sheet]);
+    return () => {
+      cancelled = true;
+    };
+  }, [backlogOpen, backlogTab, inboxNote, inboxAttempt]);
 
-  const createNote = useCallback(
-    async (event: FormEvent) => {
-      event.preventDefault();
-      const title = newTitle.trim();
-      if (!title || creating) return;
-      setCreating(true);
-      try {
-        const response = await fetch("/api/notes", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ title, day }),
-        });
-        const body = (await response.json().catch(() => ({}))) as { id?: string; error?: string };
-        if (!response.ok || !body.id) throw new Error(body.error ?? "Could not create that Note.");
-        setNewTitle("");
-        setNotes((current) => [
-          ...current,
-          {
-            id: body.id as string,
-            title,
-            thingCount: 0,
-            memberCount: 0,
-            isInbox: false,
-            canManage: true,
-            sharedWithMe: false,
-            members: [],
-          },
-        ]);
-        setFocusNoteId(body.id as string);
-      } catch (error) {
-        showToast({
-          message: error instanceof Error ? error.message : "Could not create that Note.",
-          tone: "error",
-        });
-      } finally {
-        setCreating(false);
-      }
-    },
-    [creating, day, newTitle],
-  );
+  /** A Note is made by a control, not by filling in a form at the bottom. */
+  const createNote = useCallback(async () => {
+    if (creating) return;
+    setCreating(true);
+    try {
+      const response = await fetch("/api/notes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ day }),
+      });
+      const body = (await response.json().catch(() => ({}))) as { id?: string; error?: string };
+      if (!response.ok || !body.id) throw new Error(body.error ?? "Could not create that Note.");
+      const id = body.id;
+      setNotes((current) => [
+        ...current,
+        {
+          id,
+          title: "Untitled note",
+          thingCount: 0,
+          memberCount: 0,
+          isInbox: false,
+          canManage: true,
+          sharedWithMe: false,
+          members: [],
+        },
+      ]);
+      setFocusNoteId(id);
+    } catch (error) {
+      showToast({
+        message: error instanceof Error ? error.message : "Could not create that Note.",
+        tone: "error",
+      });
+    } finally {
+      setCreating(false);
+    }
+  }, [creating, day]);
 
   const pickHit = useCallback(
     (hit: SearchHit) => {
@@ -129,33 +169,56 @@ export function DayHome({
     [day, loadDay],
   );
 
+  const pickDay = useCallback(
+    (next: string) => {
+      setMonthOpen(false);
+      if (next !== day) void loadDay(next);
+    },
+    [day, loadDay],
+  );
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <header className="sticky top-0 z-20 border-b border-edge bg-canvas/85 px-4 pb-2.5 pt-3 backdrop-blur sm:px-6">
-        <div className="flex items-start gap-2">
-          <div className="min-w-0 flex-1">
-            <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted">{day}</p>
-            <h1 className="truncate text-xl font-semibold tracking-tight text-ink">
-              {formatLongDate(day)}
-            </h1>
-          </div>
+      <header className="sticky top-0 z-20 border-b border-edge bg-canvas/85 px-4 pb-2 pt-2.5 backdrop-blur sm:px-6">
+        <div className="flex items-center gap-1">
+          <h1 className="min-w-0 flex-1 truncate text-lg font-semibold tracking-tight text-ink">
+            {formatLongDate(day)}
+          </h1>
           <StatusPill status={status} peers={[]} />
+          <button
+            type="button"
+            onClick={() => setMonthOpen(true)}
+            aria-label="Choose a day"
+            className="grid h-10 w-10 shrink-0 place-items-center rounded-lg text-muted transition hover:bg-raised hover:text-ink"
+          >
+            <CalendarIcon />
+          </button>
+          <button
+            type="button"
+            onClick={() => void createNote()}
+            disabled={creating}
+            aria-label="New Note"
+            className="grid h-10 w-10 shrink-0 place-items-center rounded-lg text-muted transition hover:bg-raised hover:text-ink disabled:opacity-40"
+          >
+            <PlusIcon />
+          </button>
         </div>
 
-        <div className="mt-1 flex items-center gap-1 text-xs text-muted">
+        <div className="mt-0.5 flex items-center gap-1 text-xs text-muted">
           <button
             type="button"
             onClick={() => void loadDay(addDays(day, -1))}
             aria-label="Previous day"
-            className="grid h-10 w-10 place-items-center rounded-lg hover:bg-raised hover:text-ink"
+            className="grid h-10 w-8 place-items-center rounded-lg text-base hover:bg-raised hover:text-ink"
           >
             ‹
           </button>
           <button
             type="button"
             onClick={() => void loadDay(today)}
+            aria-disabled={day === today}
             className={`grid h-10 place-items-center rounded-lg px-2 hover:bg-raised hover:text-ink ${
-              day === today ? "text-ink" : ""
+              day === today ? "text-ink opacity-50" : ""
             }`}
           >
             Today
@@ -164,35 +227,27 @@ export function DayHome({
             type="button"
             onClick={() => void loadDay(addDays(day, 1))}
             aria-label="Next day"
-            className="grid h-10 w-10 place-items-center rounded-lg hover:bg-raised hover:text-ink"
+            className="grid h-10 w-8 place-items-center rounded-lg text-base hover:bg-raised hover:text-ink"
           >
             ›
           </button>
 
-          <div className="ml-auto flex items-center gap-1">
-            <button
-              type="button"
-              onClick={() => setSearchOpen(true)}
-              className="grid h-10 place-items-center rounded-lg px-2.5 hover:bg-raised hover:text-ink"
-            >
-              Search
-            </button>
-            <button
-              type="button"
-              onClick={() => setSheet("inbox")}
-              className="grid h-10 place-items-center rounded-lg px-2.5 hover:bg-raised hover:text-ink"
-            >
-              Backlog
-            </button>
-            <button
-              type="button"
-              onClick={() => setSheet("scratchpad")}
-              aria-label="Scratchpad"
-              className="grid h-10 w-10 place-items-center rounded-lg text-muted hover:bg-raised hover:text-ink"
-            >
-              ✎
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => setSearchOpen(true)}
+            aria-label="Search"
+            className="ml-auto grid h-10 w-10 place-items-center rounded-lg text-muted hover:bg-raised hover:text-ink sm:hidden"
+          >
+            <SearchIcon />
+          </button>
+          <button
+            type="button"
+            onClick={() => setSearchOpen(true)}
+            className="ml-auto hidden min-h-10 w-64 items-center gap-2 rounded-lg border border-edge px-3 text-left text-[13px] text-muted transition hover:border-accent/40 hover:text-ink sm:flex"
+          >
+            <SearchIcon />
+            Search notes and Things
+          </button>
         </div>
       </header>
 
@@ -215,59 +270,75 @@ export function DayHome({
 
           {notes.length === 0 && (
             <p className="mt-1 text-sm leading-relaxed text-muted">
-              Nothing written today. A Note is the home for the Things you add — name one and start
-              typing.
+              Nothing here yet. Tap the plus to start a Note, then type — every line you write in it
+              becomes a Thing.
             </p>
           )}
-
-          <form onSubmit={createNote} className="mt-10 flex gap-2 border-t border-edge pt-4">
-            <input
-              value={newTitle}
-              onChange={(event) => setNewTitle(event.target.value)}
-              placeholder="New Note for this day"
-              aria-label="New Note"
-              maxLength={120}
-              autoComplete="off"
-              enterKeyHint="done"
-              className="ds-input"
-            />
-            <button
-              type="submit"
-              disabled={!newTitle.trim() || creating}
-              className="ds-button ds-button-primary min-h-11 shrink-0 px-4 text-xs disabled:opacity-40"
-            >
-              Create
-            </button>
-          </form>
         </div>
       </main>
 
       <SearchOverlay open={searchOpen} onClose={() => setSearchOpen(false)} onPick={pickHit} />
 
-      <Sheet open={sheet === "inbox"} title="Backlog" onClose={() => setSheet(null)}>
-        {inboxNote ? (
-          <>
-            <p className="mb-3 text-xs leading-relaxed text-muted">
-              Things with no day yet. Everything here lives in your Inbox.
-            </p>
-            <NoteSurface
-              note={inboxNote}
-              user={user}
-              onStatus={setStatus}
-              onDeleted={() => {
-                setInboxNote(null);
-                setInboxId(null);
-                setSheet(null);
-              }}
-            />
-          </>
-        ) : (
-          <p className="text-sm text-muted">Loading…</p>
-        )}
-      </Sheet>
+      <MonthSheet
+        open={monthOpen}
+        day={day}
+        onClose={() => setMonthOpen(false)}
+        onPick={pickDay}
+      />
 
-      <Sheet open={sheet === "scratchpad"} title="Scratchpad" onClose={() => setSheet(null)}>
-        <Scratchpad room={backlogRoom(workspaceId)} userId={user.id} />
+      <Sheet open={backlogOpen} title="Backlog" onClose={() => setBacklogOpen(false)}>
+        <div className="mb-3 flex gap-1 rounded-lg bg-raised p-1">
+          {(["inbox", "scratchpad"] as const).map((tab) => (
+            <button
+              key={tab}
+              type="button"
+              onClick={() => setBacklogTab(tab)}
+              aria-pressed={backlogTab === tab}
+              className={`min-h-9 flex-1 rounded-md px-2 text-xs transition ${
+                backlogTab === tab ? "bg-canvas text-ink shadow-sm" : "text-muted hover:text-ink"
+              }`}
+            >
+              {tab === "inbox" ? "Inbox" : "Scratchpad"}
+            </button>
+          ))}
+        </div>
+
+        {backlogTab === "inbox" ? (
+          inboxNote ? (
+            <>
+              <p className="mb-3 text-xs leading-relaxed text-muted">
+                Things with no day yet. Everything here lives in your Inbox.
+              </p>
+              <NoteSurface
+                note={inboxNote}
+                user={user}
+                onStatus={setStatus}
+                onDeleted={() => {
+                  setInboxNote(null);
+                  setBacklogOpen(false);
+                }}
+              />
+            </>
+          ) : inboxError ? (
+            <div className="flex flex-col items-start gap-2 py-6">
+              <p className="text-sm text-muted">{inboxError}</p>
+              <button
+                type="button"
+                onClick={() => {
+                  setInboxError(null);
+                  setInboxAttempt((attempt) => attempt + 1);
+                }}
+                className="min-h-10 rounded-lg border border-edge px-3 text-xs text-ink hover:border-accent/40"
+              >
+                Try again
+              </button>
+            </div>
+          ) : (
+            <p className="py-4 text-sm text-muted">{inboxLoading ? "Opening your Inbox…" : ""}</p>
+          )
+        ) : (
+          <Scratchpad room={backlogRoom(workspaceId)} userId={user.id} />
+        )}
       </Sheet>
     </div>
   );

@@ -90,9 +90,9 @@ export function Scratchpad({ room, userId }: { room: string; userId: string }) {
   const recent = blocks.slice(-3).reverse();
 
   return (
-    <section className="rounded-xl border border-edge bg-panel p-3">
+    <section>
       <div className="flex items-center justify-between gap-2">
-        <h2 className="text-xs font-medium uppercase tracking-wider text-muted">Scratchpad</h2>
+        <p className="text-xs text-muted">Anything unsorted. Write freely.</p>
         <span
           className={`flex items-center gap-1 text-[10px] ${live ? "text-muted" : "text-warning"}`}
         >

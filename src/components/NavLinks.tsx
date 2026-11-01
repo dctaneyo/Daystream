@@ -4,9 +4,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 /**
- * There is one view (a day) and one utility (settings). Search is a control on
- * that view — a sheet, not a destination — so it dispatches rather than
- * navigates (UX-23, UI-11).
+ * Navigation carries places only. Search is a control that lives on the page
+ * it searches, so it is not in here; the backlog is a sheet, so it dispatches
+ * rather than navigates (UX-23, UI-11).
  */
 export function NavLinks({ layout }: { today?: string; layout: "sidebar" | "mobile" }) {
   const pathname = usePathname() ?? "";
@@ -16,21 +16,21 @@ export function NavLinks({ layout }: { today?: string; layout: "sidebar" | "mobi
     {
       key: "day",
       label: "Today",
-      href: "/app",
+      href: "/app" as string | null,
       active: onDay,
       onClick: undefined as (() => void) | undefined,
     },
     {
-      key: "search",
-      label: "Search",
+      key: "backlog",
+      label: "Backlog",
       href: null,
       active: false,
-      onClick: () => window.dispatchEvent(new CustomEvent("daystream:search")),
+      onClick: () => window.dispatchEvent(new CustomEvent("daystream:backlog")),
     },
     {
       key: "settings",
       label: "Settings",
-      href: "/app/settings",
+      href: "/app/settings" as string | null,
       active: pathname.startsWith("/app/settings"),
       onClick: undefined,
     },
