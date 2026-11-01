@@ -401,3 +401,39 @@ Decision log entries look like:
 > **2026-11-01 · VI-01…VI-12 ·** Added an identity layer with a tell list and a cover test, because
 > “clean and restrained” had quietly produced the default SaaS palette. Identity now comes from the
 > stream, the mono day stamp and a single accent — not from novelty typefaces or an icon set.
+
+## 14. Order of work
+
+Dependency first, then risk, then visibility. Two things gate everything else: people must be able to
+*reach* the app on a phone (`UI-11`), and destructive actions must be *safe* (`UX-18`) before any
+change adds a new way to be destructive. Identity work is late but not last — retrofitting it onto
+screens the containment change rewrites would be rework.
+
+**Standing rule: whatever you touch, you finish.** Any screen opened for another reason gets its
+`VI` pass and its 390×844 check in the same change, so identity arrives with the work instead of
+waiting for its own project.
+
+| # | Work | Why in this position | Effort | Risk |
+| --- | --- | --- | --- | --- |
+| 1 | Mobile navigation | Notes and Settings unreachable on ~95% of usage | ~30 min | none |
+| 2 | Vocabulary copy + README truth | cheap; stops "note" meaning two things | ~30 min | none |
+| 3 | Undo + Toast | every later move depends on it | ~1 day | low |
+| 4 | `moveBlock` failure surfacing | silent not-moving is the worst failure shape | ~1 h | low |
+| 5 | Note delete confirms with a count | one tap, irreversible, possibly shared | ~1 h | low |
+| 6 | `note_id` + Inbox + note-room projection | fixes search blindness; invisible to people | ~1 day | medium: live DB |
+| 7 | Capture defaults + Inbox visible | makes Notes the home in the UI | ~1 day | low |
+| 8 | Retire the day/backlog lanes | one home, finally | ~2 days | high |
+| 9 | Token + type-scale sweep | mechanical; settles before identity | ~1 day | low |
+| 10 | Stream identity pass (`VI-04`, `VI-10`) | the screen that defines the product | ~1 day | low |
+| 11 | Menu + format bar: 44px, focus, line break | last keyboard-only gap (`UX-31`) | ~½ day | low |
+| 12 | Quick capture from anywhere | biggest lever for a capture app | ~1–2 days | medium |
+| 13 | Reminders, or delete the type | a checkbox that promises nothing | ~2 days | medium |
+| 14 | Wikilinks / backlinks | depth that only means something after #8 | ~2 days | medium |
+
+Not on the list, and not to be smuggled in: nested Notes, tags, rich text, drag-to-reorder, themes, a
+Note picker on the capture path, `toggle`, and any new UI dependency without a `VI-07` rule.
+
+Two cautions. Migrations run at boot (`AGENTS.md`), so `004` must be idempotent, create each
+workspace's Inbox **before** backfilling into it, backfill in one transaction, and only then set
+`note_id not null`. And #8 must not ship inside the same change as #6 or #7: if it goes wrong a Thing
+is homeless, and the undo stack from #3 is the only way back.
