@@ -45,6 +45,14 @@ export async function createWorkspace(userId: string, name: string): Promise<Wor
     "INSERT INTO workspace_members (workspace_id, user_id, role) VALUES ($1, $2, 'owner') ON CONFLICT DO NOTHING",
     [workspace.id, userId],
   );
+  // Every workspace starts with an Inbox so capture never has to ask where a
+  // Thing goes (UX-09, UX-10).
+  await query(
+    `INSERT INTO notes (workspace_id, title, created_by, is_inbox)
+     VALUES ($1, 'Inbox', $2, true)
+     ON CONFLICT DO NOTHING`,
+    [workspace.id, userId],
+  );
   return { id: workspace.id, name: workspace.name, role: "owner" };
 }
 

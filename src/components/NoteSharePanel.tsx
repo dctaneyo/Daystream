@@ -17,13 +17,20 @@ export function NoteSharePanel({
   members,
   canManage,
   sharedWithMe,
+  thingCount,
 }: {
   noteId: string;
   title: string;
   members: ShareMember[];
   canManage: boolean;
   sharedWithMe: boolean;
+  thingCount: number;
 }) {
+  // Named target, and a number only when one is actually known (UX-13).
+  const deleteWarning =
+    thingCount > 0
+      ? `Delete “${title}”? Its ${thingCount} ${thingCount === 1 ? "Thing" : "Things"} go with it.`
+      : `Delete “${title}”? Every Thing in it goes too.`;
   const [shareState, shareAction, sharePending] = useActionState<ActionState, FormData>(
     shareNoteAction,
     { error: null },
@@ -128,7 +135,7 @@ export function NoteSharePanel({
           <form
             action={deleteNoteAction}
             onSubmit={(event) => {
-              if (!window.confirm(`Delete “${title}”? Every Thing in it goes too.`)) {
+              if (!window.confirm(deleteWarning)) {
                 event.preventDefault();
               }
             }}

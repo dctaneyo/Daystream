@@ -12,19 +12,21 @@ The order is `DESIGN.md` §14. One line per item, ticked as it lands.
       action needs (`UX-06`, `UX-18`).
 - [x] **4. `moveBlock` failure surfacing** — no more silent 8s timeout; a real message and a retry
       (`UX-17`).
-- [ ] **5. Note delete confirms with a count** — the confirmation already names the note; the Thing
-      count needs `note_id` from #6, so it lands with it (`UX-13`).
+- [x] **5. Note delete confirms with a count** — the confirmation names the note and, once the
+      projection knows, how many Things go with it (`UX-13`).
+- [x] **6. `note_id` + Inbox + note-room projection** — migration `004`, one Inbox per workspace
+      (enforced by the database), every existing Thing backfilled into it, and `note:<id>` rooms now
+      project, so a Thing written inside a Note is searchable and countable.
 
 ## Next
 
-- [ ] **6. `note_id` + Inbox + note-room projection** — migration `004`, backfill into Inbox, project
-      `note:<id>` rooms so search and the calendar can see them. Invisible to people.
-- [ ] **7. Capture defaults + Inbox visible** — composer shows the current Note; no picker on the
-      capture path (`UX-01`, `UX-09`).
+- [ ] **7. Capture defaults** — the composer names the Note it is writing into, and remembers the
+      last one used per workspace; no picker on the capture path (`UX-01`, `UX-09`). *Partly done:*
+      the Inbox is now visible and sorted first in the Notes list.
 - [ ] **8. Retire the day/backlog lanes** — Today and Backlog become queries grouped by Note. Own
-      change, after #6 and #7.
+      change, after #7.
 - [ ] **9. Token + type-scale sweep** — `success`/`warning`/`danger`, no raw palette, no off-scale
-      sizes (`UI-02`, `UI-03`).
+      sizes (`UI-02`, `UI-03`). *Started:* `--danger` exists and the toast uses it.
 - [ ] **10. Stream identity pass** — mono day stamp as the signature, accent held to three uses, pass
       the cover test (`VI-04`, `VI-10`).
 - [ ] **11. Menu + format bar** — 44px targets, focus in/return, arrow keys, the line-break control

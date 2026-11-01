@@ -24,19 +24,49 @@ function secretKey() {
  * calendar heat-maps, search and roll-ups never have to decode CRDT state.
  * Only day and backlog rooms project — notes live purely in their Yjs document.
  */
-async function projectRoom({ workspaceId, date }, blocks) {
+/**
+ * A Thing always has a home Note. Anything typed into a day or the backlog
+ * belongs to that workspace's Inbox until someone files it (UX-02, UX-09).
+ */
+async function inboxNoteId(workspaceId) {
+  const found = await pool.query(
+    "SELECT id FROM notes WHERE workspace_id = $1 AND is_inbox ORDER BY created_at ASC LIMIT 1",
+    [workspaceId],
+  );
+  if (found.rows[0]) return found.rows[0].id;
+
+  // Migration 004 guarantees this exists; a workspace created mid-deploy may lag.
+  const created = await pool.query(
+    `INSERT INTO notes (workspace_id, title, created_by, is_inbox)
+     SELECT w.id, 'Inbox', w.owner_id, true FROM workspaces w WHERE w.id = $1
+     ON CONFLICT DO NOTHING
+     RETURNING id`,
+    [workspaceId],
+  );
+  if (created.rows[0]) return created.rows[0].id;
+
+  const retry = await pool.query(
+    "SELECT id FROM notes WHERE workspace_id = $1 AND is_inbox ORDER BY created_at ASC LIMIT 1",
+    [workspaceId],
+  );
+  return retry.rows[0]?.id ?? null;
+}
+
+async function projectRoom({ workspaceId, noteId, date }, blocks) {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
+    // Scoping by Note as well as day matters: a note room and the backlog both
+    // carry a null room_date, so without note_id they would delete each other.
     if (date) {
       await client.query(
-        "DELETE FROM things WHERE workspace_id = $1 AND room_date = $2",
-        [workspaceId, date],
+        "DELETE FROM things WHERE workspace_id = $1 AND note_id = $2 AND room_date = $3",
+        [workspaceId, noteId, date],
       );
     } else {
       await client.query(
-        "DELETE FROM things WHERE workspace_id = $1 AND room_date IS NULL",
-        [workspaceId],
+        "DELETE FROM things WHERE workspace_id = $1 AND note_id = $2 AND room_date IS NULL",
+        [workspaceId, noteId],
       );
     }
 
@@ -45,10 +75,11 @@ async function projectRoom({ workspaceId, date }, blocks) {
       if (!block.content.trim() && block.type === "text") continue;
       await client.query(
         `INSERT INTO things
-           (id, workspace_id, room_date, sort_order, type, content, is_completed, created_by, updated_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, (SELECT id FROM users WHERE id = $8), now())
+           (id, workspace_id, note_id, room_date, sort_order, type, content, is_completed, created_by, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, (SELECT id FROM users WHERE id = $9), now())
          ON CONFLICT (id) DO UPDATE SET
            workspace_id = EXCLUDED.workspace_id,
+           note_id = EXCLUDED.note_id,
            room_date = EXCLUDED.room_date,
            sort_order = EXCLUDED.sort_order,
            type = EXCLUDED.type,
@@ -58,6 +89,7 @@ async function projectRoom({ workspaceId, date }, blocks) {
         [
           block.id,
           workspaceId,
+          noteId,
           date,
           index,
           block.type,
@@ -175,8 +207,11 @@ export const hocuspocus = new Hocuspocus({
       [documentName, workspaceId, state],
     );
 
-    if (room.kind !== "note") {
-      await projectRoom({ workspaceId, date: room.date }, readBlocks(document));
+    // Note rooms project too: a Thing written inside a Note has to be findable
+    // by search and countable by the calendar, exactly like a day's Things.
+    const noteId = room.kind === "note" ? room.noteId : await inboxNoteId(workspaceId);
+    if (noteId) {
+      await projectRoom({ workspaceId, noteId, date: room.date }, readBlocks(document));
     }
   },
 

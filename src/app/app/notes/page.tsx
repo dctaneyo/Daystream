@@ -57,6 +57,11 @@ export default async function NotesPage() {
                     · updated {updatedLabel(note.updatedAt)}
                   </span>
                 </span>
+                {note.isInbox && (
+                  <span className="shrink-0 text-[10px] uppercase tracking-wide text-muted">
+                    Inbox
+                  </span>
+                )}
                 {note.memberCount > 0 && (
                   <span className="shrink-0 rounded-full border border-accent/40 px-2 py-0.5 text-[10px] uppercase tracking-wide text-accent">
                     shared

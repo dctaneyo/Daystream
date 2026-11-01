@@ -14,12 +14,15 @@ export type NoteAccess = {
   createdBy: string | null;
   canManage: boolean;
   sharedWithMe: boolean;
+  isInbox: boolean;
 };
 
 export type NoteSummary = NoteAccess & {
   updatedAt: Date;
   memberCount: number;
 };
+
+export type NoteAccessWithInbox = NoteAccess & { isInbox: boolean };
 
 type NoteRow = {
   id: string;
@@ -30,6 +33,7 @@ type NoteRow = {
   updated_at: Date;
   member_count: string;
   can_manage: boolean;
+  is_inbox: boolean;
 };
 
 const VISIBLE = `(
@@ -47,13 +51,14 @@ export async function listNotes(userId: string, limit = 200): Promise<NoteSummar
             n.title,
             n.created_by,
             n.updated_at,
+            n.is_inbox,
             (SELECT count(*) FROM note_members m WHERE m.note_id = n.id) AS member_count,
             EXISTS (SELECT 1 FROM workspace_members wm
                      WHERE wm.workspace_id = n.workspace_id AND wm.user_id = $1) AS can_manage
        FROM notes n
        JOIN workspaces w ON w.id = n.workspace_id
       WHERE ${VISIBLE}
-      ORDER BY n.updated_at DESC
+      ORDER BY n.is_inbox DESC, n.updated_at DESC
       LIMIT $2`,
     [userId, limit],
   );
@@ -65,6 +70,7 @@ export async function listNotes(userId: string, limit = 200): Promise<NoteSummar
     createdBy: row.created_by,
     canManage: row.can_manage,
     sharedWithMe: !row.can_manage,
+    isInbox: row.is_inbox,
     updatedAt: row.updated_at,
     memberCount: Number(row.member_count),
   }));
@@ -78,6 +84,7 @@ export async function getNoteForUser(noteId: string, userId: string): Promise<No
             n.title,
             n.created_by,
             n.updated_at,
+            n.is_inbox,
             (SELECT count(*) FROM note_members m WHERE m.note_id = n.id) AS member_count,
             EXISTS (SELECT 1 FROM workspace_members wm
                      WHERE wm.workspace_id = n.workspace_id AND wm.user_id = $1) AS can_manage
@@ -96,6 +103,7 @@ export async function getNoteForUser(noteId: string, userId: string): Promise<No
     createdBy: row.created_by,
     canManage: row.can_manage,
     sharedWithMe: !row.can_manage,
+    isInbox: row.is_inbox,
   };
 }
 
@@ -139,6 +147,19 @@ export async function deleteNote(noteId: string, userId: string): Promise<void> 
                          WHERE wm.workspace_id = n.workspace_id AND wm.user_id = $1))`,
     [userId, noteId],
   );
+}
+
+/**
+ * How many Things a Note holds, for the one confirmation that names a count.
+ * Projection is asynchronous, so a freshly typed Note may legitimately report
+ * zero — callers must phrase that as "unknown" rather than "empty" (UX-13).
+ */
+export async function countThingsInNote(noteId: string): Promise<number> {
+  const { rows } = await query<{ count: string }>(
+    "SELECT count(*) AS count FROM things WHERE note_id = $1",
+    [noteId],
+  );
+  return Number(rows[0]?.count ?? 0);
 }
 
 export type NoteMember = { userId: string; publicId: string; name: string };
