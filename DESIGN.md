@@ -156,6 +156,10 @@ desktop). Day title gets 28px above and 20px below on mobile.
 - **UX-27** The area around the iOS keyboard is paper, never the day view. The
   editor's opaque full-viewport backdrop covers any layout-viewport gap; use
   the native keyboard and do not blur the page as a substitute.
+- **UX-28** Icons are navigation and action aids, not decoration. Use the one
+  bespoke 1.25px stroke family at 14–16px; keep the word beside the icon except
+  for conventional controls such as month arrows and close, which keep an
+  accessible name.
 
 ## 5. Writing contract
 
@@ -184,7 +188,8 @@ space; no visible syntax and no hover toolbar.
 
 - **UI-01** Every separation is one 1px `--border-clean` rule. Nothing is a
   floating card; nothing has a shadow. Text actions carry a hairline underline
-  so their affordance never depends on colour alone.
+  so their affordance never depends on colour alone. Icons are monochrome
+  strokes in the current ink, never coloured badges or pictogram tiles.
 - **UI-02** No gradients, glows, glass, blur, or neon. No dark-neon inverse.
 - **UI-03** Corners are square. 0 radius everywhere, including inputs and
   checkboxes.

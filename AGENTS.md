@@ -56,7 +56,9 @@
   over the day. The rail scrolls horizontally only; the Calendar sheet reaches dates outside its window.
 - Note rows do not repeat that they are notes. Only a day pin gets a marker.
 - The page is paper: 1px hairlines, native fonts, flat ink. No card containers, gradients, glow,
-  drop shadows, icon sets, emoji or badge soup (`DESIGN.md` UI-01…UI-08).
+  drop shadows, emoji or badge soup (`DESIGN.md` UI-01…UI-08). Use only the bespoke 16px stroke
+  family in `src/components/Icon.tsx`; pair icons with labels except conventional controls with
+  accessible names.
 - Every capability has a tap-reachable control. Phone keyboards have no Tab, so list indentation has
   Outdent/Indent buttons beside the swipe gesture, and pinning has three visible choices.
 - Never use browser primitives for product UI: no `window.confirm`/`alert`/`prompt`, `<select>`,

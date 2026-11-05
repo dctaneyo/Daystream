@@ -15,6 +15,7 @@ import { useSession } from "../lib/session";
 import { useDay } from "../lib/useDay";
 import type { AwarenessUser, NoteSummary, Template } from "../types";
 import { DateRail } from "./DateRail";
+import { Icon } from "./Icon";
 import { MonthCalendar } from "./MonthCalendar";
 import { NoteEditor } from "./NoteEditor";
 import {
@@ -73,7 +74,10 @@ export function DayShell() {
     return [...notes, ...pinned, ...shared].find((note) => note.id === openNoteId) ?? null;
   }, [openNoteId, notes, pinned, shared]);
 
-  const chooseWorkspace = useCallback((id: string) => {
+  const pendingWorkspace = useRef<string | null>(null);
+
+  const chooseWorkspace = useCallback((id: string, fromUser = false) => {
+    if (fromUser) pendingWorkspace.current = id;
     setWorkspaceId(id);
     try {
       localStorage.setItem(WORKSPACE_KEY, id);
@@ -83,9 +87,15 @@ export function DayShell() {
   }, []);
 
   useEffect(() => {
-    if (data?.workspace && data.workspace.id !== workspaceId) {
-      chooseWorkspace(data.workspace.id);
+    if (!data?.workspace) return;
+    if (data.workspace.id === workspaceId) {
+      pendingWorkspace.current = null;
+      return;
     }
+    // While a newly chosen workspace is loading, `data` is still the previous
+    // day. Do not let that stale payload snap the switch back.
+    if (pendingWorkspace.current === workspaceId) return;
+    chooseWorkspace(data.workspace.id);
   }, [data, workspaceId, chooseWorkspace]);
 
   useEffect(() => {
@@ -232,9 +242,13 @@ export function DayShell() {
             type="button"
             className="ds-workspace-btn"
             aria-label={`Workspace: ${data?.workspace.name ?? "loading"}`}
+            aria-haspopup="dialog"
             onClick={() => setWorkspaceOpen(true)}
           >
-            {data?.workspace.name ?? "Workspace"}
+            <span className="ds-workspace-name">
+              {data?.workspace.name ?? "Workspace"}
+            </span>
+            <Icon name="chevron-down" />
           </button>
           <span className={`ds-conn ${online ? "is-live" : ""}`}>
             {online ? "Live" : "Local"}
@@ -339,6 +353,7 @@ export function DayShell() {
               className="ds-text-btn ds-calendar-link"
               onClick={() => setCalendarOpen(true)}
             >
+              <Icon name="calendar" />
               Calendar
             </button>
             {!isToday(date) ? (
@@ -406,6 +421,7 @@ export function DayShell() {
             onClick={() => void createNote()}
             disabled={mutating}
           >
+            <Icon name="plus" />
             New note
           </button>
           <button
@@ -414,6 +430,7 @@ export function DayShell() {
             onClick={() => setTemplatesOpen(true)}
             disabled={mutating}
           >
+            <Icon name="layout" />
             From a template
           </button>
         </div>
@@ -492,7 +509,7 @@ export function DayShell() {
           activeWorkspaceId={workspaceId}
           onClose={() => setWorkspaceOpen(false)}
           onWorkspaceChange={(id) => {
-            chooseWorkspace(id);
+            chooseWorkspace(id, true);
             setWorkspaceOpen(false);
           }}
           onChanged={() => void reload(true)}

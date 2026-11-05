@@ -17,6 +17,7 @@ import type {
   Template,
   Workspace,
 } from "../types";
+import { Icon } from "./Icon";
 import { MonthCalendar } from "./MonthCalendar";
 
 export function Sheet({
@@ -54,6 +55,7 @@ export function Sheet({
         <header className="ds-sheet-head">
           <h2 className="ds-sheet-title">{title}</h2>
           <button type="button" className="ds-text-btn" ref={closeRef} onClick={onClose}>
+            <Icon name="x" />
             Close
           </button>
         </header>
@@ -194,6 +196,7 @@ export function SettingsSheet({ onClose }: { onClose(): void }) {
 
         <div className="ds-action-list">
           <button type="button" className="ds-text-btn" onClick={() => void copyId()}>
+            <Icon name="copy" />
             {copied ? "Copied" : "Copy ID"}
           </button>
           <button
@@ -205,13 +208,16 @@ export function SettingsSheet({ onClose }: { onClose(): void }) {
               setNameOpen((open) => !open);
             }}
           >
+            <Icon name="pencil" />
             {nameOpen ? "Close name editor" : "Change name"}
           </button>
           <button type="button" className="ds-text-btn" onClick={session.lock}>
+            <Icon name="lock" />
             Lock now
           </button>
           {session.me?.user.isAdmin ? (
             <a className="ds-text-btn" href="/admin">
+              <Icon name="shield" />
               Admin console
             </a>
           ) : null}
@@ -226,6 +232,7 @@ export function SettingsSheet({ onClose }: { onClose(): void }) {
               void session.signOut();
             }}
           >
+            <Icon name="signout" />
             {signOutArmed ? "Tap again to sign out" : "Sign out"}
           </button>
         </div>
@@ -312,18 +319,28 @@ export function WorkspaceSheet({
     <Sheet title="Workspace" onClose={onClose}>
       <section className="ds-section">
         <h3 className="ds-eyebrow">Switch</h3>
-        <div className="ds-choice-row" role="group" aria-label="Workspace">
-          {workspaces.map((entry) => (
-            <button
-              key={entry.id}
-              type="button"
-              className={`ds-choice ${entry.id === activeWorkspaceId ? "is-active" : ""}`}
-              aria-pressed={entry.id === activeWorkspaceId}
-              onClick={() => onWorkspaceChange(entry.id)}
-            >
-              {entry.name}
-            </button>
-          ))}
+        <div className="ds-workspace-list" aria-label="Workspaces">
+          {workspaces.map((entry) => {
+            const current = entry.id === activeWorkspaceId;
+            return (
+              <button
+                key={entry.id}
+                type="button"
+                className={`ds-workspace-row ${current ? "is-active" : ""}`}
+                aria-current={current ? "true" : undefined}
+                onClick={() => onWorkspaceChange(entry.id)}
+              >
+                <span className="ds-workspace-row-main">
+                  <span className="ds-workspace-row-name">{entry.name}</span>
+                  <span className="ds-workspace-row-meta">
+                    {entry.role}
+                    {current ? " · current" : ""}
+                  </span>
+                </span>
+                <Icon name={current ? "check" : "arrow-right"} />
+              </button>
+            );
+          })}
         </div>
 
         <h3 className="ds-eyebrow">People</h3>
@@ -361,6 +378,7 @@ export function WorkspaceSheet({
               className="ds-text-btn"
               disabled={busy || !workspace || inviteId.trim().length < 2}
             >
+              <Icon name="plus" />
               Add
             </button>
           </div>
@@ -398,6 +416,7 @@ export function WorkspaceSheet({
               onChange={(event) => setWorkspaceName(event.target.value)}
             />
             <button type="submit" className="ds-text-btn" disabled={busy}>
+              <Icon name="plus" />
               Create
             </button>
           </div>
@@ -533,6 +552,7 @@ export function NoteShareSheet({
                       onClick={() => void remove(share.userId)}
                       disabled={busy}
                     >
+                      <Icon name="x" />
                       {armed === share.userId ? "Tap again" : "Remove"}
                     </button>
                   </li>
@@ -559,6 +579,7 @@ export function NoteShareSheet({
                   className="ds-text-btn"
                   disabled={busy || identifier.trim().length < 2}
                 >
+                  <Icon name="plus" />
                   Add
                 </button>
               </div>
@@ -652,6 +673,7 @@ export function TemplatesSheet({
                 disabled={busy}
               >
                 Start
+                <Icon name="arrow-right" />
               </button>
             </li>
           ))}

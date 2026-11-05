@@ -21,6 +21,7 @@ import { awarenessUser } from "../lib/presence";
 import { useSession } from "../lib/session";
 import { docToBlocks } from "../lib/templateBlocks";
 import type { AwarenessUser, NoteSummary, PinMode } from "../types";
+import { Icon } from "./Icon";
 import { NoteShareSheet } from "./Sheets";
 
 const PIN_OPTIONS: { mode: PinMode; label: string }[] = [
@@ -237,6 +238,7 @@ export function NoteEditor({
       <section className="ds-editor" role="dialog" aria-modal="true" aria-label="Note">
       <header className="ds-editor-head">
         <button type="button" className="ds-text-btn" onClick={onClose}>
+          <Icon name="arrow-left" />
           Day
         </button>
         <span className="ds-editor-title">{liveTitle || "Untitled"}</span>
@@ -247,10 +249,12 @@ export function NoteEditor({
               className="ds-text-btn"
               onClick={() => setShareOpen(true)}
             >
+              <Icon name="share" />
               Share
             </button>
           ) : null}
           <button type="button" className="ds-text-btn" onClick={onClose}>
+            <Icon name="check" />
             Done
           </button>
         </div>
@@ -318,6 +322,7 @@ export function NoteEditor({
                     onChange={(event) => setTemplateTitle(event.target.value)}
                   />
                   <button type="submit" className="ds-text-btn" disabled={templateBusy}>
+                    <Icon name="check" />
                     Save
                   </button>
                   <button
@@ -328,6 +333,7 @@ export function NoteEditor({
                       setTemplateNote("");
                     }}
                   >
+                    <Icon name="x" />
                     Cancel
                   </button>
                 </div>
@@ -343,6 +349,7 @@ export function NoteEditor({
                 }}
                 disabled={busy}
               >
+                <Icon name="layout" />
                 Save as template
               </button>
             )
@@ -361,6 +368,7 @@ export function NoteEditor({
               onClick={() => void remove()}
               disabled={busy}
             >
+              <Icon name="trash" />
               {confirmDelete ? "Tap again to delete" : "Delete note"}
             </button>
           ) : null}
@@ -578,6 +586,7 @@ function NoteBody({
             onClick={outdent}
             disabled={!canOutdent}
           >
+            <Icon name="outdent" />
             Outdent
           </button>
           <button
@@ -586,6 +595,7 @@ function NoteBody({
             onClick={indent}
             disabled={!canIndent}
           >
+            <Icon name="indent" />
             Indent
           </button>
         </div>

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { addDays, fromKey, isToday, longDate, toKey } from "../lib/dates";
+import { Icon } from "./Icon";
 
 export function MonthCalendar({
   date,
@@ -36,12 +37,22 @@ export function MonthCalendar({
   return (
     <div className="ds-calendar">
       <div className="ds-calendar-nav">
-        <button type="button" className="ds-text-btn" onClick={() => shift(-1)}>
-          Previous
+        <button
+          type="button"
+          className="ds-icon-btn"
+          aria-label="Previous month"
+          onClick={() => shift(-1)}
+        >
+          <Icon name="arrow-left" />
         </button>
         <span className="ds-calendar-month">{monthLabel}</span>
-        <button type="button" className="ds-text-btn" onClick={() => shift(1)}>
-          Next
+        <button
+          type="button"
+          className="ds-icon-btn"
+          aria-label="Next month"
+          onClick={() => shift(1)}
+        >
+          <Icon name="arrow-right" />
         </button>
       </div>
 
