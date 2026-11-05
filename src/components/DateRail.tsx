@@ -9,9 +9,9 @@ interface DateRailProps {
   footprints: Record<string, AwarenessUser[]>;
 }
 
-const SPAN_BEFORE = 3;
-const SPAN_DAYS = 21;
-const EDGE_DAYS = 3;
+const SPAN_BEFORE = 7;
+const SPAN_DAYS = 35;
+const EDGE_DAYS = 5;
 
 export function DateRail({ date, onSelect, activity, footprints }: DateRailProps) {
   const scrollRef = useRef<HTMLDivElement>(null);

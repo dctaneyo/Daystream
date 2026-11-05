@@ -1,15 +1,23 @@
 import {
   useEffect,
+  useMemo,
   useRef,
   useState,
   type FormEvent,
   type ReactNode,
 } from "react";
 import { api } from "../lib/api";
+import { addDays, fromKey, isToday, longDate, toKey, todayKey } from "../lib/dates";
 import { authMessage } from "../lib/errors";
 import { useSession } from "../lib/session";
 import { ACCENTS, THEMES, useAppearance } from "../lib/theme";
-import type { Member, Template, Workspace } from "../types";
+import type {
+  Member,
+  NoteShares,
+  NoteSummary,
+  Template,
+  Workspace,
+} from "../types";
 
 export function Sheet({
   title,
@@ -55,34 +63,13 @@ export function Sheet({
   );
 }
 
-interface SettingsProps {
-  workspace: Workspace | null;
-  workspaces: Workspace[];
-  members: Member[];
-  activeWorkspaceId: string;
-  onClose(): void;
-  onWorkspaceChange(id: string): void;
-  onChanged(): void;
-}
+/* --------------------------------- account -------------------------------- */
 
-export function SettingsSheet({
-  workspace,
-  workspaces,
-  members,
-  activeWorkspaceId,
-  onClose,
-  onWorkspaceChange,
-  onChanged,
-}: SettingsProps) {
+export function SettingsSheet({ onClose }: { onClose(): void }) {
   const session = useSession();
   const { theme, accent, dark, setTheme, setAccent } = useAppearance();
   const [copied, setCopied] = useState(false);
   const [signOutArmed, setSignOutArmed] = useState(false);
-  const [inviteId, setInviteId] = useState("");
-  const [inviteRole, setInviteRole] = useState<"editor" | "viewer">("editor");
-  const [inviteNote, setInviteNote] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [workspaceName, setWorkspaceName] = useState("");
 
   const userId = session.me?.user.userId ?? "";
 
@@ -93,46 +80,6 @@ export function SettingsSheet({
       window.setTimeout(() => setCopied(false), 2000);
     } catch {
       setCopied(false);
-    }
-  };
-
-  const invite = async (event: FormEvent) => {
-    event.preventDefault();
-    if (!workspace) return;
-    setBusy(true);
-    setInviteNote("");
-    try {
-      const added = await api<Member>(`/workspaces/${workspace.id}/members`, {
-        method: "POST",
-        json: { identifier: inviteId.trim(), role: inviteRole },
-      });
-      setInviteNote(`${added.displayName} now has access.`);
-      setInviteId("");
-      onChanged();
-    } catch (error) {
-      setInviteNote(authMessage(error));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const createWorkspace = async (event: FormEvent) => {
-    event.preventDefault();
-    if (!workspaceName.trim()) return;
-    setBusy(true);
-    setInviteNote("");
-    try {
-      const created = await api<Workspace>("/workspaces", {
-        method: "POST",
-        json: { name: workspaceName.trim() },
-      });
-      setWorkspaceName("");
-      onWorkspaceChange(created.id);
-      onChanged();
-    } catch (error) {
-      setInviteNote(authMessage(error));
-    } finally {
-      setBusy(false);
     }
   };
 
@@ -202,8 +149,87 @@ export function SettingsSheet({
         </div>
       </section>
 
+      <p className="ds-settings-footnote">
+        One day at a time. Your ID and PIN are the only way back in.
+      </p>
+    </Sheet>
+  );
+}
+
+/* -------------------------------- workspace ------------------------------- */
+
+interface WorkspaceProps {
+  workspace: Workspace | null;
+  workspaces: Workspace[];
+  members: Member[];
+  activeWorkspaceId: string;
+  onClose(): void;
+  onWorkspaceChange(id: string): void;
+  onChanged(): void;
+}
+
+export function WorkspaceSheet({
+  workspace,
+  workspaces,
+  members,
+  activeWorkspaceId,
+  onClose,
+  onWorkspaceChange,
+  onChanged,
+}: WorkspaceProps) {
+  const session = useSession();
+  const [inviteId, setInviteId] = useState("");
+  const [inviteRole, setInviteRole] = useState<"editor" | "viewer">("editor");
+  const [inviteNote, setInviteNote] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [workspaceName, setWorkspaceName] = useState("");
+
+  const userId = session.me?.user.userId ?? "";
+
+  const invite = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!workspace) return;
+    setBusy(true);
+    setInviteNote("");
+    try {
+      const added = await api<Member>(`/workspaces/${workspace.id}/members`, {
+        method: "POST",
+        json: { identifier: inviteId.trim(), role: inviteRole },
+      });
+      setInviteNote(`${added.displayName} now has access.`);
+      setInviteId("");
+      onChanged();
+    } catch (error) {
+      setInviteNote(authMessage(error));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const createWorkspace = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!workspaceName.trim()) return;
+    setBusy(true);
+    setInviteNote("");
+    try {
+      const created = await api<Workspace>("/workspaces", {
+        method: "POST",
+        json: { name: workspaceName.trim() },
+      });
+      setWorkspaceName("");
+      onWorkspaceChange(created.id);
+      onChanged();
+    } catch (error) {
+      setInviteNote(authMessage(error));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Sheet title="Workspace" onClose={onClose}>
       <section className="ds-section">
-        <h3 className="ds-eyebrow">Workspace</h3>
+        <h3 className="ds-eyebrow">Switch</h3>
         <div className="ds-choice-row" role="group" aria-label="Workspace">
           {workspaces.map((entry) => (
             <button
@@ -218,6 +244,7 @@ export function SettingsSheet({
           ))}
         </div>
 
+        <h3 className="ds-eyebrow">People</h3>
         <ul className="ds-members">
           {members.map((member) => (
             <li key={member.userId} className="ds-member">
@@ -302,12 +329,266 @@ export function SettingsSheet({
       </section>
 
       <p className="ds-settings-footnote">
-        Notes live inside a workspace. A held note follows you across every date; a first-of-day
-        note tops its own date.
+        People added here see every note in this workspace. To share one note only, open it and
+        use Share.
       </p>
     </Sheet>
   );
 }
+
+/* ------------------------------- note shares ------------------------------ */
+
+export function NoteShareSheet({
+  note,
+  onClose,
+  onChanged,
+}: {
+  note: NoteSummary;
+  onClose(): void;
+  onChanged(): void;
+}) {
+  const [data, setData] = useState<NoteShares | null>(null);
+  const [failure, setFailure] = useState("");
+  const [identifier, setIdentifier] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+  const [armed, setArmed] = useState<string | null>(null);
+
+  const load = async () => {
+    try {
+      setData(await api<NoteShares>(`/notes/${note.id}/shares`));
+      setFailure("");
+    } catch (error) {
+      setFailure(authMessage(error));
+    }
+  };
+
+  useEffect(() => {
+    void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [note.id]);
+
+  const invite = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!identifier.trim()) return;
+    setBusy(true);
+    setMessage("");
+    try {
+      const added = await api<Member>(`/notes/${note.id}/shares`, {
+        method: "POST",
+        json: { identifier: identifier.trim(), role: "editor" },
+      });
+      setMessage(`${added.displayName} can now edit this note.`);
+      setIdentifier("");
+      onChanged();
+      await load();
+    } catch (error) {
+      setMessage(authMessage(error));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const remove = async (userId: string) => {
+    if (armed !== userId) {
+      setArmed(userId);
+      return;
+    }
+    setBusy(true);
+    setMessage("");
+    try {
+      await api(`/notes/${note.id}/shares/${userId}`, { method: "DELETE" });
+      setArmed(null);
+      setMessage("Removed.");
+      onChanged();
+      await load();
+    } catch (error) {
+      setMessage(authMessage(error));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Sheet title="Share note" onClose={onClose}>
+      {failure ? <p className="ds-inline-note">{failure}</p> : null}
+      {!data && !failure ? <p className="ds-inline-note">Loading…</p> : null}
+
+      {data ? (
+        <>
+          <section className="ds-section">
+            <h3 className="ds-eyebrow">In this workspace</h3>
+            <ul className="ds-members">
+              {data.members.map((member) => (
+                <li key={member.userId} className="ds-member">
+                  <span className="ds-member-person">
+                    <span className="ds-member-name">{member.displayName}</span>
+                    <span className="ds-member-id">{member.userId}</span>
+                  </span>
+                  <span className="ds-member-role">{member.role}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
+
+          <section className="ds-section">
+            <h3 className="ds-eyebrow">Only this note</h3>
+            {data.shares.length === 0 ? (
+              <p className="ds-inline-note">
+                Nobody outside this workspace can open this note.
+              </p>
+            ) : (
+              <ul className="ds-members">
+                {data.shares.map((share) => (
+                  <li key={share.userId} className="ds-member">
+                    <span className="ds-member-person">
+                      <span className="ds-member-name">{share.displayName}</span>
+                      <span className="ds-member-id">{share.userId}</span>
+                    </span>
+                    <button
+                      type="button"
+                      className="ds-text-btn ds-danger"
+                      onClick={() => void remove(share.userId)}
+                      disabled={busy}
+                    >
+                      {armed === share.userId ? "Tap again" : "Remove"}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            <form className="ds-form" onSubmit={invite}>
+              <label className="ds-label" htmlFor="share-id">
+                Add someone to this note
+              </label>
+              <div className="ds-form-row">
+                <input
+                  id="share-id"
+                  className="ds-input"
+                  autoComplete="off"
+                  maxLength={60}
+                  placeholder="Ada Lovelace or 663520"
+                  value={identifier}
+                  onChange={(event) => setIdentifier(event.target.value)}
+                />
+                <button
+                  type="submit"
+                  className="ds-text-btn"
+                  disabled={busy || identifier.trim().length < 2}
+                >
+                  Add
+                </button>
+              </div>
+            </form>
+
+            {message ? (
+              <p className="ds-inline-note" role="status">
+                {message}
+              </p>
+            ) : null}
+          </section>
+
+          <p className="ds-settings-footnote">
+            A note share opens this note only — not the workspace, its tray, or its other notes.
+            They can edit the body, but cannot move or delete it.
+          </p>
+        </>
+      ) : null}
+    </Sheet>
+  );
+}
+
+/* -------------------------------- calendar -------------------------------- */
+
+export function CalendarSheet({
+  date,
+  onPick,
+  onClose,
+}: {
+  date: string;
+  onPick(date: string): void;
+  onClose(): void;
+}) {
+  const [month, setMonth] = useState(() => date.slice(0, 7));
+  const first = `${month}-01`;
+  const base = fromKey(first);
+
+  const cells = useMemo(() => {
+    const offset = (base.getDay() + 6) % 7;
+    const start = addDays(first, -offset);
+    return Array.from({ length: 42 }, (_, index) => addDays(start, index));
+  }, [base, first]);
+
+  const monthLabel = base.toLocaleDateString("en-US", {
+    month: "long",
+    year: "numeric",
+  });
+
+  const shift = (delta: number) => {
+    const next = fromKey(first);
+    next.setMonth(next.getMonth() + delta);
+    setMonth(toKey(next).slice(0, 7));
+  };
+
+  return (
+    <Sheet title="Calendar" onClose={onClose}>
+      <div className="ds-calendar-nav">
+        <button type="button" className="ds-text-btn" onClick={() => shift(-1)}>
+          Previous
+        </button>
+        <span className="ds-calendar-month">{monthLabel}</span>
+        <button type="button" className="ds-text-btn" onClick={() => shift(1)}>
+          Next
+        </button>
+      </div>
+
+      <div className="ds-calendar-weekdays" aria-hidden="true">
+        {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => (
+          <span key={day}>{day}</span>
+        ))}
+      </div>
+
+      <div className="ds-calendar-grid" aria-label={monthLabel}>
+        {cells.map((cell) => {
+          const outside = cell.slice(0, 7) !== month;
+          return (
+            <button
+              key={cell}
+              type="button"
+              className={`ds-calendar-day ${outside ? "is-outside" : ""} ${
+                cell === date ? "is-active" : ""
+              } ${isToday(cell) ? "is-today" : ""}`}
+              aria-label={longDate(cell)}
+              aria-pressed={cell === date}
+              onClick={() => {
+                onPick(cell);
+                onClose();
+              }}
+            >
+              {fromKey(cell).getDate()}
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="ds-calendar-actions">
+        <button
+          type="button"
+          className="ds-text-btn"
+          onClick={() => {
+            onPick(todayKey());
+            onClose();
+          }}
+        >
+          Today
+        </button>
+      </div>
+    </Sheet>
+  );
+}
+
+/* -------------------------------- templates ------------------------------- */
 
 export function TemplatesSheet({
   templates,
@@ -347,7 +628,8 @@ export function TemplatesSheet({
         </ul>
       )}
       <p className="ds-settings-footnote">
-        A template seeds a new note. It never changes the template itself.
+        Open a note and choose Save as template to add your own. A template seeds a new note; it
+        never changes the template itself.
       </p>
     </Sheet>
   );

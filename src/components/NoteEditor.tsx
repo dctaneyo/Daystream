@@ -12,14 +12,16 @@ import {
   useMemo,
   useRef,
   useState,
-  type TouchEvent,
+  type FormEvent,
 } from "react";
 import { api } from "../lib/api";
 import { openNoteSession, type NoteSession } from "../lib/collab";
 import { authMessage } from "../lib/errors";
 import { awarenessUser } from "../lib/presence";
 import { useSession } from "../lib/session";
+import { docToBlocks } from "../lib/templateBlocks";
 import type { AwarenessUser, NoteSummary, PinMode } from "../types";
+import { NoteShareSheet } from "./Sheets";
 
 const PIN_OPTIONS: { mode: PinMode; label: string }[] = [
   { mode: "none", label: "Free" },
@@ -83,10 +85,12 @@ export function NoteEditor({
   note,
   onClose,
   onChanged,
+  canManage = true,
 }: {
   note: NoteSummary;
   onClose(): void;
   onChanged(): void;
+  canManage?: boolean;
 }) {
   const session = useSession();
   const user = useMemo(
@@ -105,6 +109,14 @@ export function NoteEditor({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [shareOpen, setShareOpen] = useState(false);
+  const [roomEpoch, setRoomEpoch] = useState(0);
+  const [templateOpen, setTemplateOpen] = useState(false);
+  const [templateTitle, setTemplateTitle] = useState("");
+  const [templateNote, setTemplateNote] = useState("");
+  const [templateBusy, setTemplateBusy] = useState(false);
+  const editorRef = useRef<Editor | null>(null);
+  const shared = note.access === "shared";
 
   useEffect(() => {
     setPinMode(note.pinMode);
@@ -114,6 +126,7 @@ export function NoteEditor({
     let cancelled = false;
     let opened: NoteSession | null = null;
 
+    setFailure("");
     openNoteSession(note.id, user)
       .then((next) => {
         if (cancelled) {
@@ -131,11 +144,13 @@ export function NoteEditor({
       cancelled = true;
       opened?.destroy();
     };
-  }, [note.id, user]);
+  }, [note.id, user, roomEpoch]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+      // A nested sheet owns Escape while it is open; closing both surfaces at
+      // once loses the note underneath it.
+      if (event.key === "Escape" && !document.querySelector(".ds-overlay")) onClose();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -143,6 +158,10 @@ export function NoteEditor({
 
   const handleTitle = useCallback((title: string) => {
     setLiveTitle(title);
+  }, []);
+
+  const handleEditor = useCallback((editor: Editor | null) => {
+    editorRef.current = editor;
   }, []);
 
   const changePin = async (mode: PinMode) => {
@@ -179,6 +198,34 @@ export function NoteEditor({
     }
   };
 
+  const saveTemplate = async (event: FormEvent) => {
+    event.preventDefault();
+    const editor = editorRef.current;
+    if (!editor) return;
+    const blocks = docToBlocks(editor.getJSON());
+    if (!blocks.some((block) => block.text.trim())) {
+      setTemplateNote("Write a line first.");
+      return;
+    }
+    const title =
+      templateTitle.trim() || firstLine(editor.getText()) || "Untitled template";
+    setTemplateBusy(true);
+    setTemplateNote("");
+    try {
+      await api("/templates", {
+        method: "POST",
+        json: { title, blocks },
+      });
+      setTemplateOpen(false);
+      setTemplateNote("Saved as template.");
+      onChanged();
+    } catch (caught) {
+      setTemplateNote(authMessage(caught));
+    } finally {
+      setTemplateBusy(false);
+    }
+  };
+
   return (
     <section className="ds-editor" role="dialog" aria-modal="true" aria-label="Note">
       <header className="ds-editor-head">
@@ -186,29 +233,50 @@ export function NoteEditor({
           Day
         </button>
         <span className="ds-editor-title">{liveTitle || "Untitled"}</span>
-        <button type="button" className="ds-text-btn" onClick={onClose}>
-          Done
-        </button>
+        <div className="ds-editor-head-actions">
+          {canManage ? (
+            <button
+              type="button"
+              className="ds-text-btn"
+              onClick={() => setShareOpen(true)}
+            >
+              Share
+            </button>
+          ) : null}
+          <button type="button" className="ds-text-btn" onClick={onClose}>
+            Done
+          </button>
+        </div>
       </header>
 
-      <div className="ds-pin-row" role="group" aria-label="Pinning">
-        <span className="ds-pin-label">Pin</span>
-        {PIN_OPTIONS.map((option) => (
-          <button
-            key={option.mode}
-            type="button"
-            className={`ds-pin-choice ${pinMode === option.mode ? "is-active" : ""}`}
-            aria-pressed={pinMode === option.mode}
-            onClick={() => void changePin(option.mode)}
-            disabled={busy}
-          >
-            {option.label}
-          </button>
-        ))}
-      </div>
-      <p className="ds-pin-hint">
-        Held notes sit above every date. First today tops this date only.
-      </p>
+      {shared ? (
+        <p className="ds-editor-shared">
+          Shared with you. You can edit the body; the owner controls its date and sharing.
+        </p>
+      ) : null}
+
+      {canManage ? (
+        <>
+          <div className="ds-pin-row" role="group" aria-label="Pinning">
+            <span className="ds-pin-label">Pin</span>
+            {PIN_OPTIONS.map((option) => (
+              <button
+                key={option.mode}
+                type="button"
+                className={`ds-pin-choice ${pinMode === option.mode ? "is-active" : ""}`}
+                aria-pressed={pinMode === option.mode}
+                onClick={() => void changePin(option.mode)}
+                disabled={busy}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+          <p className="ds-pin-hint">
+            Held notes sit above every date. First today tops this date only.
+          </p>
+        </>
+      ) : null}
 
       <div className="ds-editor-scroll">
         {connection ? (
@@ -216,6 +284,7 @@ export function NoteEditor({
             connection={connection}
             user={user}
             onTitle={handleTitle}
+            onEditor={handleEditor}
             autoFocus={!note.excerpt && !note.title}
           />
         ) : failure ? (
@@ -227,17 +296,84 @@ export function NoteEditor({
         )}
 
         <div className="ds-editor-danger">
-          <button
-            type="button"
-            className="ds-text-btn ds-danger"
-            onClick={() => void remove()}
-            disabled={busy}
-          >
-            {confirmDelete ? "Tap again to delete" : "Delete note"}
-          </button>
+          {canManage ? (
+            templateOpen ? (
+              <form className="ds-template-save" onSubmit={(event) => void saveTemplate(event)}>
+                <label className="ds-label" htmlFor="template-title">
+                  Template name
+                </label>
+                <div className="ds-form-row">
+                  <input
+                    id="template-title"
+                    className="ds-input"
+                    maxLength={255}
+                    value={templateTitle}
+                    onChange={(event) => setTemplateTitle(event.target.value)}
+                  />
+                  <button type="submit" className="ds-text-btn" disabled={templateBusy}>
+                    Save
+                  </button>
+                  <button
+                    type="button"
+                    className="ds-text-btn"
+                    onClick={() => {
+                      setTemplateOpen(false);
+                      setTemplateNote("");
+                    }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <button
+                type="button"
+                className="ds-text-btn"
+                onClick={() => {
+                  setTemplateTitle(liveTitle || "");
+                  setTemplateOpen(true);
+                  setTemplateNote("");
+                }}
+                disabled={busy}
+              >
+                Save as template
+              </button>
+            )
+          ) : null}
+
+          {templateNote ? (
+            <span className="ds-inline-note" role="status">
+              {templateNote}
+            </span>
+          ) : null}
+
+          {canManage ? (
+            <button
+              type="button"
+              className="ds-text-btn ds-danger"
+              onClick={() => void remove()}
+              disabled={busy}
+            >
+              {confirmDelete ? "Tap again to delete" : "Delete note"}
+            </button>
+          ) : null}
           {error ? <span className="ds-error-text">{error}</span> : null}
         </div>
       </div>
+
+      {shareOpen ? (
+        <NoteShareSheet
+          note={note}
+          onClose={() => setShareOpen(false)}
+          onChanged={() => {
+            // Adding the first share switches the note from its private room to
+            // the shared room. Reconnect so this editor is in the same room as
+            // the person who just got access.
+            setRoomEpoch((current) => current + 1);
+            onChanged();
+          }}
+        />
+      ) : null}
     </section>
   );
 }
@@ -246,11 +382,13 @@ function NoteBody({
   connection,
   user,
   onTitle,
+  onEditor,
   autoFocus,
 }: {
   connection: NoteSession;
   user: AwarenessUser;
   onTitle(title: string): void;
+  onEditor(editor: Editor | null): void;
   autoFocus: boolean;
 }) {
   const editor = useEditor(
@@ -286,6 +424,14 @@ function NoteBody({
 
   const [peers, setPeers] = useState<AwarenessUser[]>([]);
   const [live, setLive] = useState(false);
+  const [listNode, setListNode] = useState<IndentNode | null>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!editor) return;
+    onEditor(editor);
+    return () => onEditor(null);
+  }, [editor, onEditor]);
 
   useEffect(() => {
     if (!editor) return;
@@ -296,6 +442,18 @@ function NoteBody({
       editor.off("update", update);
     };
   }, [editor, onTitle]);
+
+  useEffect(() => {
+    if (!editor) return;
+    const refresh = () => setListNode(indentNode(editor));
+    editor.on("selectionUpdate", refresh);
+    editor.on("transaction", refresh);
+    refresh();
+    return () => {
+      editor.off("selectionUpdate", refresh);
+      editor.off("transaction", refresh);
+    };
+  }, [editor]);
 
   useEffect(() => {
     const provider = connection.provider;
@@ -328,50 +486,98 @@ function NoteBody({
     };
   }, [connection]);
 
-  const swipe = useRef<{ x: number; y: number } | null>(null);
+  // A horizontal swipe indents or outdents the list line under the thumb. The
+  // browser's native touch handling would otherwise begin a text selection or
+  // page pan, so only a clearly horizontal gesture is captured.
+  useEffect(() => {
+    const element = bodyRef.current;
+    if (!editor || !element) return;
+
+    let start: { x: number; y: number } | null = null;
+    let horizontal = false;
+
+    const onStart = (event: globalThis.TouchEvent) => {
+      if (event.touches.length !== 1) return;
+      const touch = event.touches[0];
+      start = { x: touch.clientX, y: touch.clientY };
+      horizontal = false;
+    };
+
+    const onMove = (event: globalThis.TouchEvent) => {
+      if (!start || event.touches.length !== 1) return;
+      const touch = event.touches[0];
+      const dx = touch.clientX - start.x;
+      const dy = touch.clientY - start.y;
+      if (!horizontal && Math.abs(dx) > 14 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+        horizontal = true;
+      }
+      if (horizontal && event.cancelable) event.preventDefault();
+    };
+
+    const onEnd = (event: globalThis.TouchEvent) => {
+      const from = start;
+      const swiped = horizontal;
+      start = null;
+      horizontal = false;
+      if (!from || !swiped) return;
+      const touch = event.changedTouches[0];
+      if (!touch) return;
+      const dx = touch.clientX - from.x;
+      const dy = touch.clientY - from.y;
+      if (Math.abs(dx) < 64 || Math.abs(dy) > 48) return;
+      const node = indentNode(editor);
+      if (!node) return;
+      if (dx > 0) editor.chain().focus().sinkListItem(node).run();
+      else editor.chain().focus().liftListItem(node).run();
+    };
+
+    element.addEventListener("touchstart", onStart, { passive: true });
+    element.addEventListener("touchmove", onMove, { passive: false });
+    element.addEventListener("touchend", onEnd, { passive: true });
+    return () => {
+      element.removeEventListener("touchstart", onStart);
+      element.removeEventListener("touchmove", onMove);
+      element.removeEventListener("touchend", onEnd);
+    };
+  }, [editor]);
 
   if (!editor) {
     return <p className="ds-editor-loading">Editing…</p>;
   }
 
+  const canIndent = Boolean(listNode && editor.can().sinkListItem(listNode));
+  const canOutdent = Boolean(listNode && editor.can().liftListItem(listNode));
+
   const indent = () => {
-    const node = indentNode(editor);
-    if (node) editor.chain().focus().sinkListItem(node).run();
+    if (!listNode) return;
+    editor.chain().focus().sinkListItem(listNode).run();
   };
 
   const outdent = () => {
-    const node = indentNode(editor);
-    if (node) editor.chain().focus().liftListItem(node).run();
-  };
-
-  const onTouchStart = (event: TouchEvent) => {
-    const touch = event.touches[0];
-    if (touch) swipe.current = { x: touch.clientX, y: touch.clientY };
-  };
-
-  const onTouchEnd = (event: TouchEvent) => {
-    const start = swipe.current;
-    swipe.current = null;
-    const touch = event.changedTouches[0];
-    if (!start || !touch) return;
-    const dx = touch.clientX - start.x;
-    const dy = touch.clientY - start.y;
-    if (Math.abs(dx) > 64 && Math.abs(dy) < 40) {
-      if (dx > 0) indent();
-      else outdent();
-    }
+    if (!listNode) return;
+    editor.chain().focus().liftListItem(listNode).run();
   };
 
   return (
-    <div className="ds-editor-body" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+    <div className="ds-editor-body" ref={bodyRef}>
       <EditorContent editor={editor} />
 
       <div className="ds-editor-foot">
         <div className="ds-foot-group">
-          <button type="button" className="ds-text-btn" onClick={outdent}>
+          <button
+            type="button"
+            className="ds-text-btn"
+            onClick={outdent}
+            disabled={!canOutdent}
+          >
             Outdent
           </button>
-          <button type="button" className="ds-text-btn" onClick={indent}>
+          <button
+            type="button"
+            className="ds-text-btn"
+            onClick={indent}
+            disabled={!canIndent}
+          >
             Indent
           </button>
         </div>

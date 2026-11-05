@@ -16,7 +16,12 @@ import { useDay } from "../lib/useDay";
 import type { AwarenessUser, NoteSummary, Template } from "../types";
 import { DateRail } from "./DateRail";
 import { NoteEditor } from "./NoteEditor";
-import { SettingsSheet, TemplatesSheet } from "./Sheets";
+import {
+  CalendarSheet,
+  SettingsSheet,
+  TemplatesSheet,
+  WorkspaceSheet,
+} from "./Sheets";
 
 const WORKSPACE_KEY = "daystream.workspace";
 
@@ -35,6 +40,8 @@ export function DayShell() {
   });
   const [date, setDate] = useState(() => readDateParam(window.location.search) ?? todayKey());
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [workspaceOpen, setWorkspaceOpen] = useState(false);
+  const [calendarOpen, setCalendarOpen] = useState(false);
   const [templatesOpen, setTemplatesOpen] = useState(false);
   const [openNoteId, setOpenNoteId] = useState<string | null>(null);
   const [mutating, setMutating] = useState(false);
@@ -55,11 +62,15 @@ export function DayShell() {
 
   const notes = data?.day.notes ?? [];
   const pinned = data?.pinned ?? [];
+  const shared = useMemo(
+    () => (data?.shared ?? []).map((note) => ({ ...note, access: "shared" as const })),
+    [data],
+  );
 
   const openNote = useMemo(() => {
     if (!openNoteId) return null;
-    return [...notes, ...pinned].find((note) => note.id === openNoteId) ?? null;
-  }, [openNoteId, notes, pinned]);
+    return [...notes, ...pinned, ...shared].find((note) => note.id === openNoteId) ?? null;
+  }, [openNoteId, notes, pinned, shared]);
 
   const chooseWorkspace = useCallback((id: string) => {
     setWorkspaceId(id);
@@ -216,6 +227,14 @@ export function DayShell() {
       <header className="ds-header">
         <span className="ds-wordmark">DAYSTREAM</span>
         <div className="ds-header-right">
+          <button
+            type="button"
+            className="ds-workspace-btn"
+            aria-label={`Workspace: ${data?.workspace.name ?? "loading"}`}
+            onClick={() => setWorkspaceOpen(true)}
+          >
+            {data?.workspace.name ?? "Workspace"}
+          </button>
           <span className={`ds-conn ${online ? "is-live" : ""}`}>
             {online ? "Live" : "Local"}
           </span>
@@ -228,6 +247,29 @@ export function DayShell() {
           </button>
         </div>
       </header>
+
+      {shared.length > 0 ? (
+        <section className="ds-tray ds-tray--shared" aria-label="Shared with you">
+          <div className="ds-tray-head">
+            <span className="ds-eyebrow">Shared with you</span>
+            <span className="ds-tray-count">{shared.length}</span>
+          </div>
+          <div className="ds-tray-scroll">
+            {shared.map((note) => (
+              <button
+                key={note.id}
+                type="button"
+                className="ds-tray-item ds-shared-item"
+                onClick={() => setOpenNoteId(note.id)}
+              >
+                <span className="ds-shared-workspace">{note.workspaceName}</span>
+                <span className="ds-tray-title">{note.title || "Untitled"}</span>
+                <span className="ds-tray-excerpt">{note.excerpt || "Empty note"}</span>
+              </button>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       {pinned.length > 0 ? (
         <section className="ds-tray" aria-label="Held notes">
@@ -265,6 +307,13 @@ export function DayShell() {
             <h1 className="ds-day-title">{longDate(date)}</h1>
           </div>
           <div className="ds-day-head-right">
+            <button
+              type="button"
+              className="ds-text-btn"
+              onClick={() => setCalendarOpen(true)}
+            >
+              Calendar
+            </button>
             {!isToday(date) ? (
               <button
                 type="button"
@@ -274,11 +323,6 @@ export function DayShell() {
                 Today
               </button>
             ) : null}
-            <span className="ds-eyebrow">
-              {notes.length > 0
-                ? `${notes.length} ${notes.length === 1 ? "note" : "notes"}`
-                : ""}
-            </span>
           </div>
         </div>
 
@@ -300,12 +344,11 @@ export function DayShell() {
                 }`}
                 onClick={() => setOpenNoteId(note.id)}
               >
-                <span className="ds-note-meta">
-                  {note.pinMode === "day" ? (
+                {note.pinMode === "day" ? (
+                  <span className="ds-note-meta">
                     <span className="ds-note-mark">First today</span>
-                  ) : null}
-                  <span className="ds-note-kind">{note.excerpt ? "Note" : "Blank"}</span>
-                </span>
+                  </span>
+                ) : null}
                 <span className="ds-note-title">{note.title || "Untitled"}</span>
                 <span className="ds-note-excerpt">
                   {note.excerpt || "A page with nothing on it yet."}
@@ -356,17 +399,29 @@ export function DayShell() {
       </main>
 
       {settingsOpen ? (
-        <SettingsSheet
+        <SettingsSheet onClose={() => setSettingsOpen(false)} />
+      ) : null}
+
+      {workspaceOpen ? (
+        <WorkspaceSheet
           workspace={data?.workspace ?? null}
           workspaces={data?.workspaces ?? me?.workspaces ?? []}
           members={data?.members ?? []}
           activeWorkspaceId={workspaceId}
-          onClose={() => setSettingsOpen(false)}
+          onClose={() => setWorkspaceOpen(false)}
           onWorkspaceChange={(id) => {
             chooseWorkspace(id);
-            setSettingsOpen(false);
+            setWorkspaceOpen(false);
           }}
           onChanged={() => void reload(true)}
+        />
+      ) : null}
+
+      {calendarOpen ? (
+        <CalendarSheet
+          date={date}
+          onPick={setDate}
+          onClose={() => setCalendarOpen(false)}
         />
       ) : null}
 
@@ -382,6 +437,7 @@ export function DayShell() {
       {openNote ? (
         <NoteEditor
           note={openNote}
+          canManage={openNote.access !== "shared"}
           onClose={closeEditor}
           onChanged={() => void reload(true)}
         />

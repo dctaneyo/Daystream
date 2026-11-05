@@ -24,15 +24,17 @@ they conflict.
 The date rail is the one thing that should be recognisable with the wordmark
 covered (`UI-10`). It is a horizontal ledger strip:
 
-- 60px cells at 390px, 72px on desktop, separated by 1px hairlines.
+- 60px cells at 390px, 68px on desktop, separated by 1px hairlines.
 - Weekday in 9px tracked caps; day number in tabular sans.
 - The selected day is chalk on the paper (`bg-surface`) with a 1px accent rule
   along its bottom edge.
 - Today is a heavier numeral, not a dot or a badge.
 - Activity is a 3px muted dot. Collaborator footprints are 5px dots in each
   person's ink. Marks sit in a fixed 6px row so the rail never jitters.
-- The rail keeps its window until the selected day nears an edge, then
-  re-anchors. Selection moves under the thumb; the strip does not rebuild.
+- The rail holds 35 days and keeps its window until the selected day nears an
+  edge, then re-anchors. Selection moves under the thumb; the strip does not
+  rebuild. It scrolls horizontally only. A month calendar sheet is the way to
+  jump beyond the window, not more rail cells.
 
 The cover test: date rail + serif day title + flat note rows + "New note" rule
 should still read as Daystream with "DAYSTREAM" hidden.
@@ -86,7 +88,7 @@ becomes a gradient.
 
 ### Spacing
 
-Multiples of 4: 4, 8, 12, 16, 24, 32. Screen side padding is 20px (28px on
+Multiples of 4: 4, 8, 12, 16, 24, 32. Screen side padding is 20px (36px on
 desktop). Day title gets 28px above and 20px below on mobile.
 
 ## 4. Behaviour rules
@@ -100,7 +102,8 @@ desktop). Day title gets 28px above and 20px below on mobile.
 - **UX-04** Swiping the day left/right moves one day. Arrow keys do the same on
   desktop; `T` returns to today. `?d=YYYY-MM-DD` is the shareable day.
 - **UX-05** The rail is the primary date control; tapping a date is one action,
-  no confirmation.
+  no confirmation. The Calendar action opens a month grid so any date is two
+  taps away, including dates outside the rail's window.
 - **UX-06** Presence: the rail shows where others are in the workspace, the
   editor shows their carets. Presence is ephemeral and never written to
   Postgres. No polling, ever.
@@ -127,14 +130,24 @@ desktop). Day title gets 28px above and 20px below on mobile.
 - **UX-17** Offline: existing notes stay editable and sync on reconnect. Creating
   a note or changing a pin needs the server; the UI disables those actions only
   while a request is in flight, not pre-emptively.
-- **UX-18** Mobile indentation: swipe right to indent, left to outdent, with
-  Outdent/Indent buttons in the editor footer as the keyboard-free twin.
+- **UX-18** Mobile indentation: swipe right to indent, left to outdent on a
+  list line, with Outdent/Indent in the editor footer as the keyboard-free twin.
+  A control is disabled when the current line cannot actually move.
 - **UX-19** Selection and caret are the platform's; never replace the native
   keyboard or text menu.
 - **UX-20** Respect `prefers-reduced-motion`; no motion is load-bearing.
 - **UX-21** Administration is a separate page at `/admin`, outside the day shell.
   It uses the same paper and hairlines, but never adds admin controls to the
   notebook itself.
+- **UX-22** Workspace membership and note sharing are different promises. A
+  workspace invite opens every note in it; a note share opens exactly one note
+  and nothing else. A note sharee can edit the body but cannot pin, move,
+  delete or invite. The Share sheet states this distinction in place.
+- **UX-23** Workspace switching, members and invites live in their own Workspace
+  sheet opened from the header — not inside Account. Account holds appearance,
+  identity, locking and sign-out only.
+- **UX-24** A note row carries no redundant "Note"/"Blank" label. The only
+  optional row marker is the accent rule and "First today" for a day pin.
 
 ## 5. Writing contract
 

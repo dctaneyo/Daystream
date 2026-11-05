@@ -2,7 +2,8 @@
 
 A calendar you can write in. Every note is anchored to a day; the days are a
 horizontal ruled rail; writing happens in a flat serif page that other people
-can edit with you in real time.
+can edit with you in real time. A month calendar jumps anywhere, and a single
+note can be shared without opening the rest of its workspace.
 
 Daystream is a mobile-first PWA. It runs as **one Node process on Railway**:
 Express serves the built SPA, hosts the JSON API, and runs the Hocuspocus
@@ -24,6 +25,7 @@ WebSocket at `/collab`. Postgres is the only other dependency.
 | Offline | `y-indexeddb` per note + service-worker app shell |
 | Hosting | Railway single service (`railway.json`), health check `/api/health` |
 | Admin | Separate lazy-loaded `/admin` console, owner + administrator tiers |
+| Navigation | 35-day ruled rail, month calendar sheet, workspace sheet |
 
 No realtime SaaS, no auth SaaS, no CDN fonts. Everything runs in the Railway
 service or in the browser.
@@ -41,7 +43,8 @@ service or in the browser.
                     │                ▼                             │
                     │        Postgres (Railway plugin)             │
                     │          users, workspaces, members          │
-                    │          templates, notes (bytea CRDT)       │
+                    │          templates, notes, note_shares        │
+                    │          (notes store bytea CRDT state)       │
                     └─────────────────────────────────────────────┘
 ```
 
@@ -56,14 +59,15 @@ all specified columns and indexes are present.
 | Room | Who may join |
 | --- | --- |
 | `private-<note_id>` | the note's owner, in a workspace with one member |
-| `shared-<workspace_id>-<note_id>` | members of that workspace (shared notes) |
+| `shared-<workspace_id>-<note_id>` | members of that workspace, or a direct sharee of that note |
 | `presence-<workspace_id>` | members of that workspace (awareness only) |
 
 The browser asks `GET /api/collab/token?noteId=…` (or `?workspaceId=…` for
 presence). The server chooses the room, mints a 120-second HS256 token naming
-that exact room, and Hocuspocus re-checks ownership/membership in
-`onAuthenticate`. A token can never be replayed against another room, and the
-client cannot choose a channel.
+that exact room, and Hocuspocus re-checks ownership, membership or the note
+share in `onAuthenticate`. A token can never be replayed against another room,
+and the client cannot choose a channel. A shared channel is used when the
+workspace has more than one member **or** the note has any direct share.
 
 ### Presence, in two layers
 
@@ -71,7 +75,8 @@ client cannot choose a channel.
   publishes `{ user, footprint: { date, noteId } }` through Yjs awareness. The
   date rail reads those states to draw 5px dots. Nothing is written to Postgres.
 - **Caret:** the note's own room awareness carries `{ user }`; Tiptap's
-  collaboration caret renders a 1px cursor labelled with the six-digit ID.
+  collaboration caret renders a 1px cursor labelled with the person's display
+  name.
 
 Both are open WebSocket state. There is no polling anywhere in the product.
 
@@ -116,9 +121,18 @@ management call.
 | Member | use the notebook only |
 
 The owner cannot be demoted, and nobody can change their own ID. Changing an ID
-cascades to memberships, notes and templates; the target's current sessions end
-and they sign in with the new ID. Accounts that predate migration 002 keep a
-unique `Member <id>` placeholder and can still be invited by ID.
+cascades to memberships, notes, note shares and templates; the target's current
+sessions end and they sign in with the new ID. Accounts that predate migration
+002 keep a unique `Member <id>` placeholder and can still be invited by ID.
+
+### Sharing
+
+A workspace invite opens every note in that workspace. A **note share** is
+narrower: one person, one note. It lives in `note_shares`, survives as a "Shared
+with you" tray in that person's own app, and does not grant the workspace,
+presence, the tray, pinning, moving or deletion. The note's owner or a workspace
+editor manages the share from the note's Share sheet. Shares are editor-only in
+the UI today; the `viewer` role is supported by the schema but not offered.
 
 ---
 
@@ -132,7 +146,17 @@ buttons in the footer as the keyboard-free twin.
 
 Text goes to the Yjs document and IndexedDB before the network. The editor shows
 `Live` when synced and `Saved on this device` when not; the document syncs on
-reconnect.
+reconnect. The footer's Outdent/Indent controls are enabled only when the cursor
+is on a list line that can move; swipe right/left performs the same pair on
+touch.
+
+### Templates
+
+Three starter templates ship with the install. Any note can be turned into a
+personal template with **Save as template**: its headings, paragraphs, bullets,
+checkboxes and quotes are flattened into the server's block structure, and only
+its creator sees it. Starting from a template seeds a new note; it never mutates
+the template.
 
 ## Pinning
 
@@ -227,14 +251,16 @@ npm run build          # vite build (+ generated icons)
 node scripts/smoke.mjs # needs a running server; see below
 ```
 
-`scripts/smoke.mjs` (45 checks) exercises: real-name account creation,
+`scripts/smoke.mjs` (55 checks) exercises: real-name account creation,
 duplicate/invalid name rejection, session cookies, note creation, day-pin
 ordering, global pin tray, name-based workspace invites, both admin tiers,
 promotion/demotion, cascading ID changes, channel selection (`private-` →
-`shared-` after an invite), Yjs persistence through the title projection, live
-document sync between two sockets, footprint awareness, three kinds of outsider
-denial, token refresh, PIN unlock and logout. Admin checks promote a freshly
-created test account through `DATABASE_URL`; the suite needs that variable.
+`shared-` after an invite or note share), direct note sharing with an outsider,
+the sharee's shared tray and channel, denied pinning/deletion for a sharee,
+share revocation, Yjs persistence through the title projection, live document
+sync between two sockets, footprint awareness, outsider denial, token refresh,
+PIN unlock and logout. Admin checks promote a freshly created test account
+through `DATABASE_URL`; the suite needs that variable.
 
 ```bash
 DATABASE_URL=… AUTH_SECRET=… PORT=3100 node server/index.mjs &
@@ -252,8 +278,9 @@ server/names.mjs    display-name validation and invite lookup
 server/collab.mjs   Hocuspocus auth, bytea load/store, title projection
 server/rooms.mjs    room naming and parsing
 server/templates.mjs template → Yjs seeding, title/excerpt extraction
-src/                React SPA: session, day, rail, editor, sheets
+src/                React SPA: session, day, rail, calendar, editor, sheets
 src/admin/          standalone admin console (own route, lazy chunk, CSS)
+db/migrations/003_note_shares.sql  per-note access, additive to membership
 scripts/            PGlite dev database, smoke test, icon generator
 public/             manifest, service worker, generated icons
 ```

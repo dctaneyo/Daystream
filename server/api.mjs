@@ -75,25 +75,51 @@ async function roleIn(workspaceId, userId) {
   return rows[0]?.role ?? null;
 }
 
+async function findUserByIdentifier(identifier) {
+  const text = String(identifier ?? "").trim();
+  if (!text) return null;
+  if (PIN_RE.test(text)) return findUser(text);
+  const name = cleanLookup(text);
+  if (!name) return null;
+  const { rows } = await query(
+    "SELECT user_id, display_name FROM users WHERE lower(display_name) = lower($1)",
+    [name],
+  );
+  return rows[0] ?? null;
+}
+
+/**
+ * Workspace membership and note shares are additive. A note share is deliberately
+ * narrow: it grants the note body, not the pins, date, deletion or the rest of the
+ * workspace. Owners and workspace editors keep management rights.
+ */
 async function noteAccess(noteId, userId) {
   const { rows } = await query(
     `SELECT n.id, n.user_id, n.workspace_id, n.assigned_date, n.sort_order, n.pin_mode,
-            wm.role AS my_role,
+            wm.role AS my_role, ns.role AS share_role,
             (SELECT count(*)::int FROM workspace_members x
-              WHERE x.workspace_id = n.workspace_id) AS member_count
+              WHERE x.workspace_id = n.workspace_id) AS member_count,
+            (SELECT count(*)::int FROM note_shares s
+              WHERE s.note_id = n.id) AS share_count
        FROM notes n
        LEFT JOIN workspace_members wm
          ON wm.workspace_id = n.workspace_id AND wm.user_id = $2
+       LEFT JOIN note_shares ns
+         ON ns.note_id = n.id AND ns.user_id = $2
       WHERE n.id = $1`,
     [noteId, userId],
   );
   const note = rows[0];
   if (!note) return null;
-  if (!note.my_role && note.user_id !== userId) return null;
+  const owner = note.user_id === userId;
+  if (!note.my_role && !note.share_role && !owner) return null;
+  const canManage = owner || (note.my_role !== null && note.my_role !== "viewer");
   return {
     note,
-    canWrite: note.my_role !== "viewer",
+    canManage,
+    canWrite: canManage || note.share_role === "editor",
     memberCount: note.member_count,
+    shareCount: note.share_count,
   };
 }
 
@@ -396,7 +422,7 @@ api.get("/bootstrap", requireAuth, async (req, res) => {
   const requested = String(req.query.workspace ?? "");
   const workspace = workspaces.find((entry) => entry.id === requested) ?? workspaces[0];
 
-  const [day, pinned, activity, members, templates] = await Promise.all([
+  const [day, pinned, activity, members, templates, shared] = await Promise.all([
     query(
       `SELECT ${NOTE_COLUMNS}
          FROM notes
@@ -438,6 +464,27 @@ api.get("/bootstrap", requireAuth, async (req, res) => {
         ORDER BY title ASC`,
       [userId],
     ),
+    // Notes shared directly with this person from a workspace they do not
+    // belong to. Workspace members already see these in their own days.
+    query(
+      `SELECT n.id, n.user_id AS "userId", n.workspace_id AS "workspaceId",
+              n.title, n.excerpt, n.assigned_date AS "assignedDate",
+              n.sort_order AS "sortOrder", n.pin_mode AS "pinMode",
+              n.template_id AS "templateId", n.created_at AS "createdAt",
+              n.updated_at AS "updatedAt", w.name AS "workspaceName",
+              ns.role AS "shareRole"
+         FROM notes n
+         JOIN note_shares ns ON ns.note_id = n.id
+         JOIN workspaces w ON w.id = n.workspace_id
+        WHERE ns.user_id = $1
+          AND NOT EXISTS (
+            SELECT 1 FROM workspace_members wm
+             WHERE wm.workspace_id = n.workspace_id AND wm.user_id = $1
+          )
+        ORDER BY n.assigned_date DESC, n.updated_at DESC
+        LIMIT 40`,
+      [userId],
+    ),
   ]);
 
   res.json({
@@ -458,6 +505,7 @@ api.get("/bootstrap", requireAuth, async (req, res) => {
     })),
     day: { date, notes: day.rows },
     pinned: pinned.rows,
+    shared: shared.rows,
     activity: activity.rows,
   });
 });
@@ -541,7 +589,7 @@ api.patch("/notes/:id", requireAuth, sameOrigin, async (req, res) => {
     res.status(404).json({ error: "not_found" });
     return;
   }
-  if (!access.canWrite) {
+  if (!access.canManage) {
     res.status(403).json({ error: "read_only" });
     return;
   }
@@ -629,11 +677,119 @@ api.delete("/notes/:id", requireAuth, sameOrigin, async (req, res) => {
     res.status(404).json({ error: "not_found" });
     return;
   }
-  if (!access.canWrite) {
+  if (!access.canManage) {
     res.status(403).json({ error: "read_only" });
     return;
   }
   await query("DELETE FROM notes WHERE id = $1", [req.params.id]);
+  res.status(204).end();
+});
+
+/* ------------------------------ note shares ----------------------------- */
+
+api.get("/notes/:id/shares", requireAuth, async (req, res) => {
+  if (!isUuid(req.params.id)) {
+    res.status(404).json({ error: "not_found" });
+    return;
+  }
+  const access = await noteAccess(req.params.id, req.auth.userId);
+  if (!access) {
+    res.status(404).json({ error: "not_found" });
+    return;
+  }
+  if (!access.canManage) {
+    res.status(403).json({ error: "forbidden" });
+    return;
+  }
+
+  const [members, shares] = await Promise.all([
+    query(
+      `SELECT wm.user_id AS "userId", u.display_name AS "displayName", wm.role
+         FROM workspace_members wm
+         JOIN users u ON u.user_id = wm.user_id
+        WHERE wm.workspace_id = $1
+        ORDER BY wm.role ASC, lower(u.display_name) ASC`,
+      [access.note.workspace_id],
+    ),
+    query(
+      `SELECT ns.user_id AS "userId", u.display_name AS "displayName", ns.role
+         FROM note_shares ns
+         JOIN users u ON u.user_id = ns.user_id
+        WHERE ns.note_id = $1
+        ORDER BY lower(u.display_name) ASC`,
+      [req.params.id],
+    ),
+  ]);
+
+  res.json({ members: members.rows, shares: shares.rows, canManage: true });
+});
+
+api.post("/notes/:id/shares", requireAuth, sameOrigin, async (req, res) => {
+  if (!isUuid(req.params.id)) {
+    res.status(404).json({ error: "not_found" });
+    return;
+  }
+  const access = await noteAccess(req.params.id, req.auth.userId);
+  if (!access) {
+    res.status(404).json({ error: "not_found" });
+    return;
+  }
+  if (!access.canManage) {
+    res.status(403).json({ error: "forbidden" });
+    return;
+  }
+
+  const role = String(req.body?.role ?? "editor");
+  if (!["editor", "viewer"].includes(role)) {
+    res.status(400).json({ error: "invalid_role" });
+    return;
+  }
+  const target = await findUserByIdentifier(req.body?.identifier);
+  if (!target) {
+    res.status(404).json({ error: "no_such_user" });
+    return;
+  }
+  if (target.user_id === req.auth.userId) {
+    res.status(400).json({ error: "invalid_user" });
+    return;
+  }
+  if (await roleIn(access.note.workspace_id, target.user_id)) {
+    res.status(409).json({ error: "already_member" });
+    return;
+  }
+
+  const { rows } = await query(
+    `INSERT INTO note_shares (note_id, user_id, role)
+     VALUES ($1, $2, $3)
+     ON CONFLICT (note_id, user_id) DO UPDATE SET role = EXCLUDED.role
+     RETURNING role`,
+    [req.params.id, target.user_id, role],
+  );
+  res.status(201).json({
+    userId: target.user_id,
+    displayName: target.display_name,
+    role: rows[0].role,
+  });
+});
+
+api.delete("/notes/:id/shares/:userId", requireAuth, sameOrigin, async (req, res) => {
+  if (!isUuid(req.params.id) || !PIN_RE.test(String(req.params.userId))) {
+    res.status(404).json({ error: "not_found" });
+    return;
+  }
+  const access = await noteAccess(req.params.id, req.auth.userId);
+  if (!access) {
+    res.status(404).json({ error: "not_found" });
+    return;
+  }
+  if (!access.canManage) {
+    res.status(403).json({ error: "forbidden" });
+    return;
+  }
+  await query(
+    "DELETE FROM note_shares WHERE note_id = $1 AND user_id = $2",
+    [req.params.id, req.params.userId],
+  );
   res.status(204).end();
 });
 
@@ -685,21 +841,8 @@ api.post("/workspaces/:id/members", requireAuth, sameOrigin, async (req, res) =>
     return;
   }
 
-  // A six-digit string is an ID; anything else is a display name. Names are
-  // unique case-insensitively, so the lookup can only ever return one person.
-  let target = null;
-  if (PIN_RE.test(identifier)) {
-    target = await findUser(identifier);
-  } else {
-    const name = cleanLookup(identifier);
-    if (name) {
-      const { rows } = await query(
-        "SELECT user_id, display_name FROM users WHERE lower(display_name) = lower($1)",
-        [name],
-      );
-      target = rows[0] ?? null;
-    }
-  }
+  // A six-digit string is an ID; anything else is a display name.
+  const target = await findUserByIdentifier(identifier);
   if (!target) {
     res.status(404).json({ error: "no_such_user" });
     return;
@@ -787,10 +930,10 @@ api.get("/collab/token", requireAuth, async (req, res) => {
     }
     workspaceId = access.note.workspace_id;
     noteRef = access.note.id;
-    // A note in a workspace with collaborators uses the shared channel; a
-    // solo workspace keeps the private channel. The client cannot choose.
+    // A note with workspace collaborators or an explicit note share uses the
+    // shared channel; a solo, unshared workspace keeps the private channel.
     room =
-      access.memberCount > 1
+      access.memberCount > 1 || access.shareCount > 0
         ? sharedRoom(workspaceId, noteRef)
         : privateRoom(noteRef);
   }

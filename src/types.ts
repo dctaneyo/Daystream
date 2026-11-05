@@ -12,6 +12,10 @@ export interface NoteSummary {
   templateId: string | null;
   createdAt: string;
   updatedAt: string;
+  /** Present when the note came through a direct note share. */
+  workspaceName?: string;
+  shareRole?: "editor" | "viewer";
+  access?: "workspace" | "shared";
 }
 
 export type WorkspaceRole = "admin" | "editor" | "viewer";
@@ -26,6 +30,18 @@ export interface Member {
   userId: string;
   displayName: string;
   role: string;
+}
+
+export interface NoteShare {
+  userId: string;
+  displayName: string;
+  role: string;
+}
+
+export interface NoteShares {
+  members: Member[];
+  shares: NoteShare[];
+  canManage: boolean;
 }
 
 export type TemplateBlockType = "p" | "h1" | "h2" | "bullet" | "check" | "quote";
@@ -79,6 +95,7 @@ export interface Bootstrap {
   templates: Template[];
   day: { date: string; notes: NoteSummary[] };
   pinned: NoteSummary[];
+  shared: NoteSummary[];
   activity: { date: string; count: number }[];
 }
 

@@ -38,7 +38,12 @@
   ID, and the owner cannot be demoted. Enforce this server-side, not only in the UI.
 - User-ID changes rely on `ON UPDATE CASCADE`; the target's existing sessions become invalid. Keep
   the console warning accurate if that behavior changes.
-- Migrations are append-only. `002_names_and_admins.sql` adds the name index and tiers.
+- Migrations are append-only. `002_names_and_admins.sql` adds the name index and tiers;
+  `003_note_shares.sql` adds per-note access.
+- Workspace access and note access are different. `note_shares` grants one note only; a note
+  sharee must never gain workspace presence, siblings, pinning, moving, deletion or invite rights.
+  Keep the room switch (`private-` → `shared-`) and the sharee tray in sync if this changes.
+- Workspace switching, members and invites belong in the Workspace sheet, not Account.
 
 ## Design rules
 
@@ -46,7 +51,9 @@
 - **Mobile is the design target**: build and check at 390×844 first; anything only complete at
   desktop width is unfinished.
 - The app is one view: a day, its notes, and the held tray. No note page, no feed, no search page.
-  Notes open as a full-screen editor; settings and templates are sheets over the day.
+  Notes open as a full-screen editor; settings, calendar, workspace, sharing and templates are sheets
+  over the day. The rail scrolls horizontally only; the Calendar sheet reaches dates outside its window.
+- Note rows do not repeat that they are notes. Only a day pin gets a marker.
 - The page is paper: 1px hairlines, native fonts, flat ink. No card containers, gradients, glow,
   drop shadows, icon sets, emoji or badge soup (`DESIGN.md` UI-01…UI-08).
 - Every capability has a tap-reachable control. Phone keyboards have no Tab, so list indentation has

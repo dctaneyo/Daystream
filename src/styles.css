@@ -241,7 +241,23 @@ button:disabled {
 .ds-header-right {
   display: flex;
   align-items: center;
-  gap: 18px;
+  gap: 14px;
+  min-width: 0;
+}
+
+.ds-workspace-btn {
+  max-width: 92px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  padding: 8px 0;
+  font-size: 12px;
+  color: var(--text-muted);
+  text-align: left;
+}
+
+.ds-workspace-btn:hover {
+  color: var(--text-primary);
 }
 
 .ds-conn {
@@ -286,6 +302,17 @@ button:disabled {
   font-size: 10px;
   letter-spacing: 0.1em;
   color: var(--text-muted);
+}
+
+.ds-shared-workspace {
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.ds-shared-item {
+  gap: 5px;
 }
 
 .ds-tray-scroll {
@@ -337,6 +364,8 @@ button:disabled {
   z-index: 15;
   display: flex;
   overflow-x: auto;
+  overflow-y: hidden;
+  touch-action: pan-x;
   overscroll-behavior-x: contain;
   scroll-snap-type: x proximity;
   scrollbar-width: none;
@@ -389,7 +418,7 @@ button:disabled {
   position: absolute;
   left: 0;
   right: 0;
-  bottom: -1px;
+  bottom: 0;
   height: 1px;
   background: var(--accent);
 }
@@ -495,18 +524,10 @@ button:disabled {
   gap: 12px;
 }
 
-.ds-note-kind,
 .ds-note-mark {
   font-size: 10px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-}
-
-.ds-note-kind {
-  color: var(--text-muted);
-}
-
-.ds-note-mark {
   color: var(--accent);
 }
 
@@ -581,6 +602,86 @@ button:disabled {
 
 /* ================================ sheets =============================== */
 
+.ds-calendar-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: 20px 0 14px;
+}
+
+.ds-calendar-month {
+  font-family: var(--font-note);
+  font-size: 19px;
+  font-weight: 400;
+}
+
+.ds-calendar-weekdays,
+.ds-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+}
+
+.ds-calendar-weekdays span {
+  padding: 6px 0;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.ds-calendar-grid {
+  border-top: 1px solid var(--border-clean);
+  border-left: 1px solid var(--border-clean);
+}
+
+.ds-calendar-day {
+  position: relative;
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-right: 1px solid var(--border-clean);
+  border-bottom: 1px solid var(--border-clean);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+
+.ds-calendar-day:hover {
+  background: var(--bg-canvas);
+}
+
+.ds-calendar-day.is-outside {
+  color: var(--text-muted);
+  opacity: 0.45;
+}
+
+.ds-calendar-day.is-today {
+  font-weight: 600;
+}
+
+.ds-calendar-day.is-active {
+  background: var(--bg-canvas);
+}
+
+.ds-calendar-day.is-active::after {
+  content: "";
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 0;
+  height: 1px;
+  background: var(--accent);
+}
+
+.ds-calendar-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 14px;
+}
+
 .ds-overlay {
   position: fixed;
   inset: 0;
@@ -619,6 +720,7 @@ button:disabled {
 }
 
 .ds-sheet-body {
+  min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: 0 20px calc(28px + var(--safe-bottom));
@@ -989,13 +1091,32 @@ button:disabled {
 }
 
 .ds-editor-title {
-  max-width: 55%;
+  flex: 1 1 auto;
+  min-width: 0;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
+  text-align: center;
   font-size: 10px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.ds-editor-head-actions {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.ds-editor-shared {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--border-clean);
+  font-size: 11px;
+  line-height: 1.5;
   color: var(--text-muted);
 }
 
@@ -1049,6 +1170,7 @@ button:disabled {
   max-width: 680px;
   margin: 0 auto;
   padding: 24px 20px 0;
+  touch-action: pan-y;
 }
 
 .ds-editor-loading {
@@ -1066,6 +1188,18 @@ button:disabled {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+}
+
+.ds-template-save {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-clean);
+}
+
+.ds-template-save .ds-form-row {
+  border-bottom: 1px solid var(--border-clean);
 }
 
 .ds-editor-foot {
@@ -1165,7 +1299,9 @@ button:disabled {
 
 .ds-prose ul[data-type="taskList"] li > label {
   flex: 0 0 auto;
-  margin-top: 0.34em;
+  display: flex;
+  align-items: center;
+  min-height: 1.72em;
   user-select: none;
 }
 
@@ -1280,15 +1416,20 @@ button:disabled {
 
 @media (min-width: 720px) {
   .ds-shell {
-    max-width: 760px;
+    max-width: 1040px;
     margin: 0 auto;
     border-left: 1px solid var(--border-clean);
     border-right: 1px solid var(--border-clean);
   }
 
   .ds-header {
-    padding-left: 28px;
-    padding-right: 28px;
+    padding-left: 36px;
+    padding-right: 36px;
+  }
+
+  .ds-workspace-btn {
+    max-width: 160px;
+    font-size: 13px;
   }
 
   .ds-tray-head {
@@ -1302,8 +1443,8 @@ button:disabled {
   }
 
   .ds-rail-day {
-    flex-basis: 72px;
-    height: 72px;
+    flex-basis: 68px;
+    height: 76px;
   }
 
   .ds-rail-day:first-child {
@@ -1311,35 +1452,39 @@ button:disabled {
   }
 
   .ds-day-head {
-    padding: 36px 28px 22px;
+    padding: 40px 36px 24px;
   }
 
   .ds-day-title {
-    font-size: 34px;
+    font-size: 40px;
   }
 
   .ds-note-row {
-    padding: 22px 28px 24px;
+    padding: 24px 36px 26px;
   }
 
   .ds-note-row.is-day-pinned {
-    padding-left: 26px;
+    padding-left: 34px;
+  }
+
+  .ds-note-excerpt {
+    max-width: 78ch;
   }
 
   .ds-empty {
-    padding-left: 28px;
+    padding-left: 36px;
   }
 
   .ds-day-actions {
-    padding: 24px 28px 12px;
+    padding: 24px 36px 12px;
   }
 
   .ds-inline-note {
-    padding-left: 28px;
+    padding-left: 36px;
   }
 
   .ds-editor-body {
-    padding-top: 40px;
+    padding-top: 44px;
   }
 
   .ds-overlay {
@@ -1348,7 +1493,7 @@ button:disabled {
   }
 
   .ds-sheet {
-    max-width: 560px;
+    max-width: 600px;
     max-height: 82vh;
     border: 1px solid var(--border-clean);
     border-top-color: var(--text-primary);

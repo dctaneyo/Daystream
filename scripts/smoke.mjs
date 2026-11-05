@@ -412,6 +412,74 @@ try {
   const outsiderDelete = await call(outsiderJar, `/notes/${noteId}`, { method: "DELETE" });
   check("outsiders cannot delete a note", outsiderDelete.status === 404);
 
+  const sharedDirectly = await call(jarA, `/notes/${noteId}/shares`, {
+    method: "POST",
+    body: { identifier: nameC, role: "editor" },
+  });
+  check(
+    "a note can be shared with someone outside the workspace",
+    sharedDirectly.status === 201 && sharedDirectly.data.userId === userIdC,
+    JSON.stringify(sharedDirectly.data),
+  );
+
+  const shareList = await call(jarA, `/notes/${noteId}/shares`);
+  check(
+    "the note share list names the person",
+    shareList.status === 200 &&
+      shareList.data.shares.some((share) => share.userId === userIdC),
+  );
+  const shareeCannotManage = await call(outsiderJar, `/notes/${noteId}/shares`);
+  check("a note sharee cannot manage the share list", shareeCannotManage.status === 403);
+
+  const shareeToken = await call(outsiderJar, `/collab/token?noteId=${noteId}`);
+  check(
+    "a note sharee gets the note channel",
+    shareeToken.status === 200 &&
+      shareeToken.data.room === `shared-${workspaceId}-${noteId}`,
+    JSON.stringify(shareeToken.data),
+  );
+
+  const shareeBootstrap = await call(
+    outsiderJar,
+    `/bootstrap?date=${date}&from=${date}&to=${date}&workspace=${outsider.data.workspace.id}`,
+  );
+  check(
+    "the shared note appears in the sharee's shared tray",
+    shareeBootstrap.status === 200 &&
+      shareeBootstrap.data.shared.some((note) => note.id === noteId),
+  );
+
+  const shareePin = await call(outsiderJar, `/notes/${noteId}`, {
+    method: "PATCH",
+    body: { pinMode: "global" },
+  });
+  check("a note sharee cannot move or pin the note", shareePin.status === 403);
+  const shareeDelete = await call(outsiderJar, `/notes/${noteId}`, { method: "DELETE" });
+  check("a note sharee cannot delete the note", shareeDelete.status === 403);
+
+  const memberShare = await call(jarA, `/notes/${noteId}/shares`, {
+    method: "POST",
+    body: { identifier: nameB },
+  });
+  check(
+    "workspace members do not need a direct note share",
+    memberShare.status === 409 && memberShare.data.error === "already_member",
+  );
+  const selfShare = await call(jarA, `/notes/${noteId}/shares`, {
+    method: "POST",
+    body: { identifier: nameA },
+  });
+  check("a note cannot be shared with its manager", selfShare.status === 400);
+
+  const unshared = await call(jarA, `/notes/${noteId}/shares/${userIdC}`, {
+    method: "DELETE",
+  });
+  const revokedToken = await call(outsiderJar, `/collab/token?noteId=${noteId}`);
+  check(
+    "removing a note share revokes the channel",
+    unshared.status === 204 && revokedToken.status === 404,
+  );
+
   const refreshed = await call(jarB, "/auth/refresh", { method: "POST" });
   check("refresh rotates the access token", refreshed.status === 204);
 

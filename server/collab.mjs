@@ -73,7 +73,15 @@ export const hocuspocus = new Hocuspocus({
         throw new Error("Token does not match this note");
       }
       const role = await membershipRole(room.workspaceId, userId);
-      if (!role) throw new Error("Not a member of this workspace");
+      if (!role) {
+        // A note share is the narrow exception to workspace membership: it
+        // admits the socket to this one note room, never presence or siblings.
+        const { rowCount } = await query(
+          "SELECT 1 FROM note_shares WHERE note_id = $1 AND user_id = $2",
+          [note.id, userId],
+        );
+        if (!rowCount) throw new Error("Not a member of this workspace");
+      }
     }
 
     if (debug) console.log("[collab] authenticated", documentName, userId);
