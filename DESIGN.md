@@ -148,6 +148,14 @@ desktop). Day title gets 28px above and 20px below on mobile.
   identity, locking and sign-out only.
 - **UX-24** A note row carries no redundant "Note"/"Blank" label. The only
   optional row marker is the accent rule and "First today" for a day pin.
+- **UX-25** At 1100px and wider the app uses the width: month calendar and
+  people on the left, the day in the centre, held/shared notes on the right.
+  The mobile single column is still the primary design, not a fallback.
+- **UX-26** A member may change their own display name; the six-digit ID never
+  changes. Display names stay unique case-insensitively.
+- **UX-27** The area around the iOS keyboard is paper, never the day view. The
+  editor's opaque full-viewport backdrop covers any layout-viewport gap; use
+  the native keyboard and do not blur the page as a substitute.
 
 ## 5. Writing contract
 
@@ -175,7 +183,8 @@ space; no visible syntax and no hover toolbar.
 ## 6. Component rules
 
 - **UI-01** Every separation is one 1px `--border-clean` rule. Nothing is a
-  floating card; nothing has a shadow.
+  floating card; nothing has a shadow. Text actions carry a hairline underline
+  so their affordance never depends on colour alone.
 - **UI-02** No gradients, glows, glass, blur, or neon. No dark-neon inverse.
 - **UI-03** Corners are square. 0 radius everywhere, including inputs and
   checkboxes.

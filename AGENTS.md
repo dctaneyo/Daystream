@@ -31,6 +31,7 @@
 
 - Display names are the user-facing identity: real names, unique case-insensitively via
   `users_display_name_unique`. Registration requires one; invites accept a name or a 6-digit ID.
+  A member can change their own display name; the six-digit ID remains fixed.
 - `/admin` is a separate lazy-loaded surface (`src/admin/`), mounted by `main.tsx` outside the day
   shell. Never move admin controls into the notebook.
 - Two tiers: the owner (`is_super_admin`) can promote/demote administrators; an administrator

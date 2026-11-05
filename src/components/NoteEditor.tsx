@@ -226,8 +226,15 @@ export function NoteEditor({
     }
   };
 
+  useEffect(() => {
+    document.body.classList.add("ds-editor-open");
+    return () => document.body.classList.remove("ds-editor-open");
+  }, []);
+
   return (
-    <section className="ds-editor" role="dialog" aria-modal="true" aria-label="Note">
+    <>
+      <div className="ds-editor-backdrop" aria-hidden="true" />
+      <section className="ds-editor" role="dialog" aria-modal="true" aria-label="Note">
       <header className="ds-editor-head">
         <button type="button" className="ds-text-btn" onClick={onClose}>
           Day
@@ -374,7 +381,8 @@ export function NoteEditor({
           }}
         />
       ) : null}
-    </section>
+      </section>
+    </>
   );
 }
 

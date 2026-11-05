@@ -141,6 +141,18 @@ button:disabled {
   overflow: hidden;
 }
 
+body.ds-editor-open {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+.ds-editor-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 79;
+  background: var(--bg-surface);
+}
+
 .ds-wordmark {
   font-size: 11px;
   font-weight: 600;
@@ -162,17 +174,23 @@ button:disabled {
   line-height: 1.2;
   color: var(--text-muted);
   padding: var(--space-2) 0;
-  border-bottom: 1px solid transparent;
+  border-bottom: 1px solid color-mix(in srgb, var(--border-clean) 82%, transparent);
   text-align: left;
   text-decoration: none;
 }
 
 .ds-text-btn:hover {
   color: var(--text-primary);
+  border-bottom-color: currentColor;
 }
 
 .ds-text-btn:active {
   opacity: 0.6;
+}
+
+.ds-text-btn:disabled {
+  opacity: 0.45;
+  border-bottom-color: transparent;
 }
 
 .ds-danger:hover {
@@ -251,6 +269,7 @@ button:disabled {
   white-space: nowrap;
   text-overflow: ellipsis;
   padding: 8px 0;
+  border-bottom: 1px solid var(--border-clean);
   font-size: 12px;
   color: var(--text-muted);
   text-align: left;
@@ -258,6 +277,7 @@ button:disabled {
 
 .ds-workspace-btn:hover {
   color: var(--text-primary);
+  border-bottom-color: currentColor;
 }
 
 .ds-conn {
@@ -745,6 +765,34 @@ button:disabled {
   gap: var(--space-2);
 }
 
+.ds-action-list {
+  display: flex;
+  flex-direction: column;
+  margin-top: 14px;
+  border-top: 1px solid var(--border-clean);
+}
+
+.ds-action-list > .ds-text-btn {
+  width: 100%;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border-clean);
+  font-size: 13px;
+}
+
+.ds-action-list > .ds-text-btn:hover {
+  border-bottom-color: var(--text-primary);
+}
+
+.ds-name-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 14px 0;
+  border-top: 1px solid var(--border-clean);
+  border-bottom: 1px solid var(--border-clean);
+}
+
 .ds-choice {
   padding: 7px 12px;
   border: 1px solid var(--border-clean);
@@ -1002,6 +1050,8 @@ button:disabled {
   gap: 10px;
   width: 100%;
   max-width: 320px;
+  margin-left: auto;
+  margin-right: auto;
   padding: 16px 0 4px;
 }
 
@@ -1034,7 +1084,9 @@ button:disabled {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 1px;
-  margin-top: 12px;
+  width: 100%;
+  max-width: 320px;
+  margin: 12px auto 0;
   background: var(--border-clean);
   border-top: 1px solid var(--border-clean);
   border-bottom: 1px solid var(--border-clean);
@@ -1414,6 +1466,10 @@ button:disabled {
 
 /* =============================== desktop =============================== */
 
+.ds-desktop-aside {
+  display: none;
+}
+
 @media (min-width: 720px) {
   .ds-shell {
     max-width: 1040px;
@@ -1501,6 +1557,197 @@ button:disabled {
 
   .ds-key {
     height: 68px;
+  }
+}
+
+@media (min-width: 1100px) {
+  .ds-shell {
+    max-width: none;
+    margin: 0;
+    border-left: 0;
+    border-right: 0;
+    display: grid;
+    grid-template-columns: minmax(252px, 292px) minmax(0, 1fr) minmax(264px, 308px);
+    grid-template-rows: auto auto minmax(0, 1fr);
+    grid-template-areas:
+      "header header header"
+      "left rail right"
+      "left day right";
+  }
+
+  .ds-header {
+    grid-area: header;
+    padding-left: 28px;
+    padding-right: 28px;
+  }
+
+  .ds-rail {
+    grid-area: rail;
+  }
+
+  .ds-day {
+    grid-area: day;
+    width: 100%;
+    max-width: 880px;
+    justify-self: center;
+  }
+
+  .ds-tray {
+    display: none;
+  }
+
+  .ds-calendar-link {
+    display: none;
+  }
+
+  .ds-desktop-aside {
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+    min-width: 0;
+    padding: 26px 24px 36px;
+    background: var(--bg-canvas);
+  }
+
+  .ds-desktop-aside--left {
+    grid-area: left;
+    position: sticky;
+    top: calc(var(--header-h) + var(--safe-top));
+    align-self: start;
+    max-height: calc(100dvh - var(--header-h) - var(--safe-top));
+    overflow-y: auto;
+    border-right: 1px solid var(--border-clean);
+  }
+
+  .ds-desktop-aside--right {
+    grid-area: right;
+    position: sticky;
+    top: calc(var(--header-h) + var(--safe-top));
+    align-self: start;
+    max-height: calc(100dvh - var(--header-h) - var(--safe-top));
+    overflow-y: auto;
+    border-left: 1px solid var(--border-clean);
+  }
+
+  .ds-desktop-aside .ds-calendar-nav {
+    margin-bottom: 10px;
+  }
+
+  .ds-desktop-aside .ds-calendar-weekdays {
+    font-size: 8px;
+  }
+
+  .ds-desktop-aside .ds-calendar-day {
+    min-height: 30px;
+    font-size: 12px;
+  }
+
+  .ds-side-section {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 0;
+  }
+
+  .ds-side-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+  }
+
+  .ds-side-count {
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    color: var(--text-muted);
+  }
+
+  .ds-side-workspace {
+    margin: 0;
+    overflow: hidden;
+    font-family: var(--font-note);
+    font-size: 21px;
+    line-height: 1.2;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .ds-side-people {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    border-top: 1px solid var(--border-clean);
+  }
+
+  .ds-side-person {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-2);
+    padding: 9px 0;
+    border-bottom: 1px solid var(--border-clean);
+  }
+
+  .ds-side-person-name {
+    overflow: hidden;
+    font-family: var(--font-note);
+    font-size: 14px;
+    line-height: 1.25;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .ds-side-person-role {
+    flex: 0 0 auto;
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  .ds-side-list {
+    border-top: 1px solid var(--border-clean);
+  }
+
+  .ds-side-item {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border-clean);
+    text-align: left;
+  }
+
+  .ds-side-item:hover .ds-side-item-title {
+    color: var(--accent);
+  }
+
+  .ds-side-item-title {
+    overflow: hidden;
+    font-family: var(--font-note);
+    font-size: 15px;
+    line-height: 1.3;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .ds-side-item-excerpt {
+    display: -webkit-box;
+    overflow: hidden;
+    font-size: 12px;
+    line-height: 1.45;
+    color: var(--text-muted);
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+
+  .ds-side-empty {
+    margin: 0;
+    padding: 10px 0;
+    border-top: 1px solid var(--border-clean);
+    font-size: 12px;
+    color: var(--text-muted);
   }
 }
 

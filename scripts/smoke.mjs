@@ -170,6 +170,31 @@ try {
   const me = await call(jarA, "/me");
   check("session cookie authenticates /me", me.status === 200 && me.data.user.userId === userIdA);
 
+  const renamed = await call(jarA, "/me", {
+    method: "PATCH",
+    body: { displayName: `${nameA} Renamed` },
+  });
+  check(
+    "a member can change their display name",
+    renamed.status === 200 && renamed.data.user.displayName === `${nameA} Renamed`,
+  );
+  const invalidRename = await call(jarA, "/me", {
+    method: "PATCH",
+    body: { displayName: "Ada 123" },
+  });
+  check(
+    "display-name changes reject handles",
+    invalidRename.status === 400 && invalidRename.data.error === "invalid_name",
+  );
+  const restoredName = await call(jarA, "/me", {
+    method: "PATCH",
+    body: { displayName: nameA },
+  });
+  check(
+    "the restored display name is reflected back",
+    restoredName.status === 200 && restoredName.data.user.displayName === nameA,
+  );
+
   await makeOwner(userIdA);
   const ownerMe = await call(jarA, "/me");
   check("owner rights reach the session", ownerMe.data.user.isSuperAdmin === true);

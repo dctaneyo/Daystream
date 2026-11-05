@@ -34,6 +34,7 @@ export interface SessionValue {
   message: string;
   signIn(userId: string, pin: string): Promise<void>;
   register(displayName: string, pin: string): Promise<{ userId: string }>;
+  rename(displayName: string): Promise<void>;
   enter(): void;
   unlock(pin: string): Promise<void>;
   lock(): void;
@@ -174,6 +175,23 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       // Hold on the "write this down" screen until `enter()` is pressed.
       setStatus("signedOut");
       return { userId: created.user.userId };
+    } catch (error) {
+      setMessage(authMessage(error));
+      throw error;
+    } finally {
+      setBusy(false);
+    }
+  }, []);
+
+  const rename = useCallback(async (displayName: string) => {
+    setBusy(true);
+    setMessage("");
+    try {
+      const result = await api<{ user: Me["user"] }>("/me", {
+        method: "PATCH",
+        json: { displayName },
+      });
+      setMe((current) => (current ? { ...current, user: result.user } : current));
     } catch (error) {
       setMessage(authMessage(error));
       throw error;
@@ -371,12 +389,13 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       message,
       signIn,
       register,
+      rename,
       enter,
       unlock,
       lock,
       signOut,
     }),
-    [status, me, busy, message, signIn, register, enter, unlock, lock, signOut],
+    [status, me, busy, message, signIn, register, rename, enter, unlock, lock, signOut],
   );
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;

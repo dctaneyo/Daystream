@@ -25,7 +25,7 @@ WebSocket at `/collab`. Postgres is the only other dependency.
 | Offline | `y-indexeddb` per note + service-worker app shell |
 | Hosting | Railway single service (`railway.json`), health check `/api/health` |
 | Admin | Separate lazy-loaded `/admin` console, owner + administrator tiers |
-| Navigation | 35-day ruled rail, month calendar sheet, workspace sheet |
+| Navigation | 35-day ruled rail, month calendar, workspace sheet; three-column desktop workspace |
 
 No realtime SaaS, no auth SaaS, no CDN fonts. Everything runs in the Railway
 service or in the browser.
@@ -89,7 +89,8 @@ Both are open WebSocket state. There is no polling anywhere in the product.
   workspace and an `admin` membership, and shows the ID once. The first account
   on an install is the owner (`is_admin` + `is_super_admin`).
 - **Names:** display names are unique case-insensitively and are how a workspace
-  invite finds someone. Invites accept a name or a six-digit ID.
+  invite finds someone. Invites accept a name or a six-digit ID. A member can
+  change their own display name from Account; the ID stays fixed.
 - **Sign in:** ID pad → PIN pad, auto-submitting at six digits. Five wrong PINs
   lock that account for five minutes (in-memory, per service instance).
 - **Tokens:** 15-minute access JWT and a 7-day refresh JWT, both HTTP-only. The
@@ -251,9 +252,10 @@ npm run build          # vite build (+ generated icons)
 node scripts/smoke.mjs # needs a running server; see below
 ```
 
-`scripts/smoke.mjs` (55 checks) exercises: real-name account creation,
-duplicate/invalid name rejection, session cookies, note creation, day-pin
-ordering, global pin tray, name-based workspace invites, both admin tiers,
+`scripts/smoke.mjs` (58 checks) exercises: real-name account creation,
+duplicate/invalid name rejection, self-service display-name changes, session
+cookies, note creation, day-pin order, global pin tray, name-based workspace
+invites, both admin tiers,
 promotion/demotion, cascading ID changes, channel selection (`private-` →
 `shared-` after an invite or note share), direct note sharing with an outsider,
 the sharee's shared tray and channel, denied pinning/deletion for a sharee,
@@ -266,6 +268,13 @@ through `DATABASE_URL`; the suite needs that variable.
 DATABASE_URL=… AUTH_SECRET=… PORT=3100 node server/index.mjs &
 SMOKE_URL=http://127.0.0.1:3100 node scripts/smoke.mjs
 ```
+
+## Desktop
+
+At 1100px and wider the day is the centre of a three-column workspace: the
+month calendar and people sit on the left, and held/shared notes sit on the
+right. The rail and day use the centre column; the side columns collapse away
+below that width. The phone layout remains the primary one.
 
 ## Layout
 
@@ -298,5 +307,6 @@ public/             manifest, service worker, generated icons
 - A note is visible to every member of its workspace; there is no per-note ACL
   inside a workspace.
 - Administration covers listing, administrator roles and ID changes. It does not
-  disable or delete accounts, reset PINs, or edit display names.
+  disable or delete accounts or reset PINs. Members can edit their own display
+  name, but administrators cannot edit someone else's.
 - There is no search, backlinks, attachments, reminders or calendar import yet.

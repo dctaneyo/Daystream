@@ -389,6 +389,54 @@ api.get("/me", requireAuth, async (req, res) => {
   });
 });
 
+api.patch("/me", requireAuth, sameOrigin, async (req, res) => {
+  const displayName = normalizeDisplayName(req.body?.displayName);
+  if (!displayName) {
+    res.status(400).json({ error: "invalid_name" });
+    return;
+  }
+
+  const clash = await query(
+    "SELECT 1 FROM users WHERE lower(display_name) = lower($1) AND user_id <> $2",
+    [displayName, req.auth.userId],
+  );
+  if (clash.rowCount) {
+    res.status(409).json({ error: "name_taken" });
+    return;
+  }
+
+  try {
+    const { rows } = await query(
+      `UPDATE users SET display_name = $1
+        WHERE user_id = $2
+        RETURNING user_id, display_name, is_admin, is_super_admin`,
+      [displayName, req.auth.userId],
+    );
+    const user = rows[0];
+    if (!user) {
+      res.status(401).json({ error: "unauthenticated" });
+      return;
+    }
+    res.json({
+      user: {
+        userId: user.user_id,
+        displayName: user.display_name,
+        isAdmin: user.is_admin === true,
+        isSuperAdmin: user.is_super_admin === true,
+      },
+    });
+  } catch (error) {
+    if (
+      error?.code === "23505" &&
+      String(error.constraint ?? "").includes("display_name")
+    ) {
+      res.status(409).json({ error: "name_taken" });
+      return;
+    }
+    throw error;
+  }
+});
+
 /* ------------------------------- bootstrap ------------------------------ */
 
 api.get("/bootstrap", requireAuth, async (req, res) => {

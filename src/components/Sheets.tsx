@@ -1,13 +1,12 @@
 import {
   useEffect,
-  useMemo,
   useRef,
   useState,
   type FormEvent,
   type ReactNode,
 } from "react";
 import { api } from "../lib/api";
-import { addDays, fromKey, isToday, longDate, toKey, todayKey } from "../lib/dates";
+import { todayKey } from "../lib/dates";
 import { authMessage } from "../lib/errors";
 import { useSession } from "../lib/session";
 import { ACCENTS, THEMES, useAppearance } from "../lib/theme";
@@ -18,6 +17,7 @@ import type {
   Template,
   Workspace,
 } from "../types";
+import { MonthCalendar } from "./MonthCalendar";
 
 export function Sheet({
   title,
@@ -70,6 +70,10 @@ export function SettingsSheet({ onClose }: { onClose(): void }) {
   const { theme, accent, dark, setTheme, setAccent } = useAppearance();
   const [copied, setCopied] = useState(false);
   const [signOutArmed, setSignOutArmed] = useState(false);
+  const [nameOpen, setNameOpen] = useState(false);
+  const [nameDraft, setNameDraft] = useState(session.me?.user.displayName ?? "");
+  const [nameError, setNameError] = useState("");
+  const [nameBusy, setNameBusy] = useState(false);
 
   const userId = session.me?.user.userId ?? "";
 
@@ -80,6 +84,25 @@ export function SettingsSheet({ onClose }: { onClose(): void }) {
       window.setTimeout(() => setCopied(false), 2000);
     } catch {
       setCopied(false);
+    }
+  };
+
+  const saveName = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const next = nameDraft.replace(/\s+/g, " ").trim();
+    if (next.length < 2) {
+      setNameError("Enter your name.");
+      return;
+    }
+    setNameBusy(true);
+    setNameError("");
+    try {
+      await session.rename(next);
+      setNameOpen(false);
+    } catch (caught) {
+      setNameError(authMessage(caught));
+    } finally {
+      setNameBusy(false);
     }
   };
 
@@ -121,9 +144,68 @@ export function SettingsSheet({ onClose }: { onClose(): void }) {
           <p className="ds-settings-name">{session.me?.user.displayName}</p>
           <p className="ds-settings-id">{userId}</p>
         </div>
-        <div className="ds-choice-row">
+
+        {nameOpen ? (
+          <form className="ds-name-form" onSubmit={(event) => void saveName(event)}>
+            <label className="ds-label" htmlFor="account-display-name">
+              Display name
+            </label>
+            <input
+              id="account-display-name"
+              className="ds-input"
+              autoFocus
+              autoComplete="name"
+              autoCapitalize="words"
+              maxLength={60}
+              value={nameDraft}
+              onChange={(event) => {
+                setNameDraft(event.target.value);
+                setNameError("");
+              }}
+            />
+            <div className="ds-form-row">
+              <button
+                type="submit"
+                className="ds-primary"
+                disabled={nameBusy || nameDraft.trim().length < 2}
+              >
+                Save name
+              </button>
+              <button
+                type="button"
+                className="ds-text-btn"
+                onClick={() => {
+                  setNameOpen(false);
+                  setNameDraft(session.me?.user.displayName ?? "");
+                  setNameError("");
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        ) : null}
+
+        {nameError ? (
+          <p className="ds-inline-note" role="alert">
+            {nameError}
+          </p>
+        ) : null}
+
+        <div className="ds-action-list">
           <button type="button" className="ds-text-btn" onClick={() => void copyId()}>
             {copied ? "Copied" : "Copy ID"}
+          </button>
+          <button
+            type="button"
+            className="ds-text-btn"
+            onClick={() => {
+              setNameDraft(session.me?.user.displayName ?? "");
+              setNameError("");
+              setNameOpen((open) => !open);
+            }}
+          >
+            {nameOpen ? "Close name editor" : "Change name"}
           </button>
           <button type="button" className="ds-text-btn" onClick={session.lock}>
             Lock now
@@ -135,7 +217,7 @@ export function SettingsSheet({ onClose }: { onClose(): void }) {
           ) : null}
           <button
             type="button"
-            className="ds-text-btn ds-danger"
+            className="ds-text-btn ds-danger ds-action-danger"
             onClick={() => {
               if (!signOutArmed) {
                 setSignOutArmed(true);
@@ -510,67 +592,15 @@ export function CalendarSheet({
   onPick(date: string): void;
   onClose(): void;
 }) {
-  const [month, setMonth] = useState(() => date.slice(0, 7));
-  const first = `${month}-01`;
-  const base = fromKey(first);
-
-  const cells = useMemo(() => {
-    const offset = (base.getDay() + 6) % 7;
-    const start = addDays(first, -offset);
-    return Array.from({ length: 42 }, (_, index) => addDays(start, index));
-  }, [base, first]);
-
-  const monthLabel = base.toLocaleDateString("en-US", {
-    month: "long",
-    year: "numeric",
-  });
-
-  const shift = (delta: number) => {
-    const next = fromKey(first);
-    next.setMonth(next.getMonth() + delta);
-    setMonth(toKey(next).slice(0, 7));
-  };
-
   return (
     <Sheet title="Calendar" onClose={onClose}>
-      <div className="ds-calendar-nav">
-        <button type="button" className="ds-text-btn" onClick={() => shift(-1)}>
-          Previous
-        </button>
-        <span className="ds-calendar-month">{monthLabel}</span>
-        <button type="button" className="ds-text-btn" onClick={() => shift(1)}>
-          Next
-        </button>
-      </div>
-
-      <div className="ds-calendar-weekdays" aria-hidden="true">
-        {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => (
-          <span key={day}>{day}</span>
-        ))}
-      </div>
-
-      <div className="ds-calendar-grid" aria-label={monthLabel}>
-        {cells.map((cell) => {
-          const outside = cell.slice(0, 7) !== month;
-          return (
-            <button
-              key={cell}
-              type="button"
-              className={`ds-calendar-day ${outside ? "is-outside" : ""} ${
-                cell === date ? "is-active" : ""
-              } ${isToday(cell) ? "is-today" : ""}`}
-              aria-label={longDate(cell)}
-              aria-pressed={cell === date}
-              onClick={() => {
-                onPick(cell);
-                onClose();
-              }}
-            >
-              {fromKey(cell).getDate()}
-            </button>
-          );
-        })}
-      </div>
+      <MonthCalendar
+        date={date}
+        onPick={(next) => {
+          onPick(next);
+          onClose();
+        }}
+      />
 
       <div className="ds-calendar-actions">
         <button

@@ -15,6 +15,7 @@ import { useSession } from "../lib/session";
 import { useDay } from "../lib/useDay";
 import type { AwarenessUser, NoteSummary, Template } from "../types";
 import { DateRail } from "./DateRail";
+import { MonthCalendar } from "./MonthCalendar";
 import { NoteEditor } from "./NoteEditor";
 import {
   CalendarSheet,
@@ -293,6 +294,32 @@ export function DayShell() {
         </section>
       ) : null}
 
+      <aside className="ds-desktop-aside ds-desktop-aside--left" aria-label="Calendar and workspace">
+        <MonthCalendar date={date} onPick={setDate} />
+
+        <section className="ds-side-section">
+          <div className="ds-side-head">
+            <span className="ds-eyebrow">Workspace</span>
+            <button
+              type="button"
+              className="ds-text-btn"
+              onClick={() => setWorkspaceOpen(true)}
+            >
+              Manage
+            </button>
+          </div>
+          <p className="ds-side-workspace">{data?.workspace.name ?? "Workspace"}</p>
+          <ul className="ds-side-people">
+            {(data?.members ?? []).map((member) => (
+              <li key={member.userId} className="ds-side-person">
+                <span className="ds-side-person-name">{member.displayName}</span>
+                <span className="ds-side-person-role">{member.role}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      </aside>
+
       <DateRail
         date={date}
         onSelect={setDate}
@@ -309,7 +336,7 @@ export function DayShell() {
           <div className="ds-day-head-right">
             <button
               type="button"
-              className="ds-text-btn"
+              className="ds-text-btn ds-calendar-link"
               onClick={() => setCalendarOpen(true)}
             >
               Calendar
@@ -397,6 +424,61 @@ export function DayShell() {
           </p>
         ) : null}
       </main>
+
+      <aside className="ds-desktop-aside ds-desktop-aside--right" aria-label="Held and shared notes">
+        <section className="ds-side-section">
+          <div className="ds-side-head">
+            <span className="ds-eyebrow">Held</span>
+            <span className="ds-side-count">{pinned.length}</span>
+          </div>
+          {pinned.length > 0 ? (
+            <div className="ds-side-list">
+              {pinned.map((note) => (
+                <button
+                  key={note.id}
+                  type="button"
+                  className="ds-side-item"
+                  onClick={() => setOpenNoteId(note.id)}
+                >
+                  <span className="ds-side-item-title">{note.title || "Untitled"}</span>
+                  <span className="ds-side-item-excerpt">
+                    {note.excerpt || "Empty note"}
+                  </span>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="ds-side-empty">Nothing held.</p>
+          )}
+        </section>
+
+        <section className="ds-side-section">
+          <div className="ds-side-head">
+            <span className="ds-eyebrow">Shared with you</span>
+            <span className="ds-side-count">{shared.length}</span>
+          </div>
+          {shared.length > 0 ? (
+            <div className="ds-side-list">
+              {shared.map((note) => (
+                <button
+                  key={note.id}
+                  type="button"
+                  className="ds-side-item ds-shared-item"
+                  onClick={() => setOpenNoteId(note.id)}
+                >
+                  <span className="ds-shared-workspace">{note.workspaceName}</span>
+                  <span className="ds-side-item-title">{note.title || "Untitled"}</span>
+                  <span className="ds-side-item-excerpt">
+                    {note.excerpt || "Empty note"}
+                  </span>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="ds-side-empty">No notes shared with you.</p>
+          )}
+        </section>
+      </aside>
 
       {settingsOpen ? (
         <SettingsSheet onClose={() => setSettingsOpen(false)} />
