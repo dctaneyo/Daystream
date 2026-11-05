@@ -185,7 +185,9 @@ Never commit `.env`, `.env.local`, `.runtime/` or `.pgdata/`; all are ignored.
    - `AUTH_URL` = `https://<your-domain>`
 4. Deploy. `railway.json` builds with `npm install && npm run build` (Vite emits
    `dist/` and `prebuild` generates the PWA icons) and starts `npm start`.
-5. Migrations apply at boot and are tracked in `_daystream_migrations`.
+5. Migrations apply at boot and are tracked in `_daystream_migrations`. If the
+   Postgres volume is wiped while the service is running, the next API call
+   re-applies them to the empty database and retries; restarting also works.
 
 Health check is `/api/health` (also verifies the database). One port serves
 HTTPS and the WSS socket; no sticky sessions are needed.

@@ -53,6 +53,37 @@ export async function migrate({ log = console.log } = {}) {
   }
 }
 
+/**
+ * Re-apply migrations when the database was replaced underneath a running
+ * process — a Railway volume wiped or recreated while the service stayed up.
+ * Only heals a genuinely empty database: if the ledger survives, the schema is
+ * assumed intentional and no destructive migration runs again.
+ */
+let ensuring = null;
+export function ensureSchema() {
+  if (ensuring) return ensuring;
+  ensuring = (async () => {
+    const connectionString = process.env.DATABASE_URL;
+    if (!connectionString) throw new Error("DATABASE_URL is not set.");
+    const client = new pg.Client({ connectionString });
+    await client.connect();
+    try {
+      const { rows } = await client.query(`
+        SELECT to_regclass('public.users') AS users,
+               to_regclass('public._daystream_migrations') AS ledger
+      `);
+      if (rows[0].users || rows[0].ledger) return;
+      console.warn("[db] schema missing under a running process; migrating");
+      await migrate({ log: console.warn });
+    } finally {
+      await client.end();
+    }
+  })().finally(() => {
+    ensuring = null;
+  });
+  return ensuring;
+}
+
 const invokedDirectly =
   process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 

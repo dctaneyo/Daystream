@@ -7,7 +7,7 @@ import { WebSocketServer } from "ws";
 import { api } from "./api.mjs";
 import { closeCollab, hocuspocus } from "./collab.mjs";
 import { pool } from "./db.mjs";
-import { migrate } from "./migrate.mjs";
+import { ensureSchema, migrate } from "./migrate.mjs";
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 
@@ -89,9 +89,32 @@ if (dev) {
   });
 }
 
-app.use((error, req, res, next) => {
-  console.error("[http]", error);
+app.use(async (error, req, res, next) => {
   if (res.headersSent) return next(error);
+
+  // A wiped database volume leaves the process connected to an empty schema.
+  // Migrations normally run at boot; repair once here, then replay the request.
+  if (error?.code === "42P01" && !req.schemaChecked) {
+    req.schemaChecked = true;
+    try {
+      await ensureSchema();
+      // The API router is mounted at /api, so the replay needs the prefix
+      // stripped exactly as Express does for the first pass.
+      req.url = req.originalUrl.startsWith("/api")
+        ? req.originalUrl.slice(4) || "/"
+        : req.originalUrl;
+      api(req, res, (retryError) => {
+        if (!retryError) return;
+        console.error("[http]", retryError);
+        if (!res.headersSent) res.status(500).json({ error: "server_error" });
+      });
+      return;
+    } catch (repairError) {
+      console.error("[db] schema repair failed:", repairError);
+    }
+  }
+
+  console.error("[http]", error);
   res.status(500).json({ error: "server_error" });
 });
 
