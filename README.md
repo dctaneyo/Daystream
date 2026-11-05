@@ -151,7 +151,10 @@ Markdown-ish markers are consumed when you press space: `# `, `## `, `- `,
 `* `, `1. `, `> `, `[] ` / `[ ] `. Enter on a checkbox creates the next one;
 Enter on an empty checkbox removes it and returns a paragraph. Tab/Shift-Tab
 indent on desktop; swipe right/left does the same on touch, with Outdent/Indent
-buttons in the footer as the keyboard-free twin.
+buttons in the footer as the keyboard-free twin. Paragraphs and headings can
+step in up to six levels; list items nest structurally. A persistent formatting
+bar adds bold, italic, underline, paragraph/H1/H2, and bullet/number/checklist
+toggles.
 
 Text goes to the Yjs document and IndexedDB before the network. The editor shows
 `Live` when synced and `Saved on this device` when not; the document syncs on

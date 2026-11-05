@@ -86,7 +86,15 @@ export function summarizeStructure(blocks) {
 const TEXT_BLOCKS = new Set(["paragraph", "heading", "blockquote", "codeBlock"]);
 
 function inlineText(node) {
-  if (node instanceof Y.XmlText) return node.toString();
+  // XmlText.toString() serializes formatting attributes as tags such as
+  // <bold>…</bold>. The list projection wants the plain visible text, so read
+  // only the inserted strings from the delta and ignore mark attributes.
+  if (node instanceof Y.XmlText) {
+    return node
+      .toDelta()
+      .map((operation) => (typeof operation.insert === "string" ? operation.insert : ""))
+      .join("");
+  }
   if (node instanceof Y.XmlElement) {
     return node.toArray().map(inlineText).join("");
   }

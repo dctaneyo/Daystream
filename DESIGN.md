@@ -133,8 +133,10 @@ desktop). Day title gets 28px above and 20px below on mobile.
   a note or changing a pin needs the server; the UI disables those actions only
   while a request is in flight, not pre-emptively.
 - **UX-18** Mobile indentation: swipe right to indent, left to outdent on a
-  list line, with Outdent/Indent in the editor footer as the keyboard-free twin.
-  A control is disabled when the current line cannot actually move.
+  list item, paragraph or heading, with Outdent/Indent in the editor footer as
+  the keyboard-free twin. Paragraphs and headings step up to six levels; list
+  items nest. A control is disabled when the current block cannot actually
+  move.
 - **UX-19** Selection and caret are the platform's; never replace the native
   keyboard or text menu.
 - **UX-20** Respect `prefers-reduced-motion`; no motion is load-bearing.
@@ -172,11 +174,16 @@ desktop). Day title gets 28px above and 20px below on mobile.
   move, delete, invite, or see the workspace. The page says "Read only" and the
   link can be revoked from the Share sheet at any time; a revoked or unknown
   token gets a plain unavailable state, never a sign-in prompt.
+- **UX-30** Formatting is explicit and tap-reachable, never hover-only. The
+  editor keeps one compact, horizontally scrollable bar for bold, italic,
+  underline, paragraph/H1/H2, bullets, numbers and checklists. Active formatting
+  uses the accent rule; controls are text, not an icon-per-label toolbar.
 
 ## 5. Writing contract
 
 The editor is Tiptap with Yjs collaboration. Markdown markers are consumed on
-space; no visible syntax and no hover toolbar.
+space; there is no visible syntax and no hover toolbar. A persistent formatting
+bar provides bold, italic, underline, paragraph/H1/H2 and list toggles.
 
 | Typed | Then | Result |
 | --- | --- | --- |
@@ -190,7 +197,8 @@ space; no visible syntax and no hover toolbar.
 - **Enter** inside a checkbox adds the next empty checkbox.
 - **Enter** on an empty checkbox removes the checkbox and returns a plain
   paragraph (the escape clause).
-- **Tab / Shift-Tab** sink and lift list items on desktop.
+- **Tab / Shift-Tab** sink and lift list items on desktop, and step ordinary
+  paragraphs or headings through six indentation levels.
 - Checkboxes are flat 15px squares: 1px ink rule, accent fill when checked,
   muted strikethrough text.
 - Body: 17px serif, 1.72 line-height, max 680px measure, 20px side padding.

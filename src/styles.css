@@ -1333,6 +1333,75 @@ body.ds-editor-open {
   touch-action: pan-y;
 }
 
+.ds-format-bar {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 -20px 18px;
+  padding: 7px 20px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  touch-action: pan-x;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-clean);
+  scrollbar-width: none;
+}
+
+.ds-format-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.ds-format-group {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.ds-format-group + .ds-format-group {
+  padding-left: 10px;
+  border-left: 1px solid var(--border-clean);
+}
+
+.ds-format-btn {
+  min-width: 30px;
+  height: 30px;
+  padding: 0 7px;
+  border-bottom: 1px solid transparent;
+  font-size: 11px;
+  line-height: 1;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.ds-format-btn:hover,
+.ds-format-btn.is-active {
+  color: var(--text-primary);
+  border-bottom-color: var(--accent);
+}
+
+.ds-format-btn--bold {
+  font-family: var(--font-note);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.ds-format-btn--italic {
+  font-family: var(--font-note);
+  font-size: 15px;
+  font-style: italic;
+}
+
+.ds-format-btn--underline {
+  font-family: var(--font-note);
+  font-size: 15px;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 .ds-editor-loading {
   margin: 0;
   padding: 28px 20px;
@@ -1432,6 +1501,36 @@ body.ds-editor-open {
   margin-top: 0;
 }
 
+.ds-prose [data-indent="1"] {
+  margin-left: 1.35rem;
+}
+
+.ds-prose [data-indent="2"] {
+  margin-left: 2.7rem;
+}
+
+.ds-prose [data-indent="3"] {
+  margin-left: 4.05rem;
+}
+
+.ds-prose [data-indent="4"] {
+  margin-left: 5.4rem;
+}
+
+.ds-prose [data-indent="5"] {
+  margin-left: 6.75rem;
+}
+
+.ds-prose [data-indent="6"] {
+  margin-left: 8.1rem;
+}
+
+.ds-prose u {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.16em;
+}
+
 .ds-prose ul,
 .ds-prose ol {
   margin: 0.4em 0;
@@ -1449,6 +1548,12 @@ body.ds-editor-open {
 .ds-prose ul[data-type="taskList"] {
   list-style: none;
   padding-left: 0;
+}
+
+.ds-prose ul[data-type="taskList"] ul[data-type="taskList"],
+.ds-prose ul[data-type="taskList"] ul:not([data-type="taskList"]),
+.ds-prose ul[data-type="taskList"] ol {
+  padding-left: 1.25em;
 }
 
 .ds-prose ul[data-type="taskList"] li {

@@ -1,4 +1,3 @@
-import { Extension } from "@tiptap/core";
 import Collaboration from "@tiptap/extension-collaboration";
 import CollaborationCaret from "@tiptap/extension-collaboration-caret";
 import Placeholder from "@tiptap/extension-placeholder";
@@ -17,6 +16,14 @@ import {
 import { api } from "../lib/api";
 import { openNoteSession, type NoteSession } from "../lib/collab";
 import { authMessage } from "../lib/errors";
+import {
+  canIndentSelection,
+  canOutdentSelection,
+  indentSelection,
+  IndentExtension,
+  setBlockType,
+  toggleHeadingBlock,
+} from "../lib/indent";
 import { awarenessUser } from "../lib/presence";
 import { useSession } from "../lib/session";
 import { docToBlocks } from "../lib/templateBlocks";
@@ -30,55 +37,114 @@ const PIN_OPTIONS: { mode: PinMode; label: string }[] = [
   { mode: "global", label: "Global pin" },
 ];
 
-type IndentNode = "taskItem" | "listItem";
-
-function indentNode(editor: Editor): IndentNode | null {
-  if (editor.isActive("taskItem")) return "taskItem";
-  if (editor.isActive("listItem")) return "listItem";
-  return null;
-}
-
-/*
- * Keyboard twins for the two editor capabilities the specification calls out:
- * Tab/Shift-Tab indentation, and the escape clause where return on an empty
- * checkbox turns it back into a plain paragraph instead of adding another box.
- */
-const IndentExtension = Extension.create({
-  name: "daystreamIndent",
-  addKeyboardShortcuts() {
-    return {
-      Tab: () => {
-        const node = indentNode(this.editor);
-        if (!node) return false;
-        return this.editor.commands.sinkListItem(node);
-      },
-      "Shift-Tab": () => {
-        const node = indentNode(this.editor);
-        if (!node) return false;
-        return this.editor.commands.liftListItem(node);
-      },
-      Enter: () => {
-        const editor = this.editor;
-        if (!editor.isActive("taskItem")) return false;
-        const { $from } = editor.state.selection;
-        for (let depth = $from.depth; depth > 0; depth -= 1) {
-          const node = $from.node(depth);
-          if (node.type.name !== "taskItem") continue;
-          if (node.textContent.trim().length > 0) return false;
-          return editor.chain().focus().toggleTaskList().run();
-        }
-        return false;
-      },
-    };
-  },
-});
-
 function firstLine(text: string): string {
   return (
     text
       .split("\n")
       .map((line) => line.trim())
       .find((line) => line.length > 0) ?? ""
+  );
+}
+
+function FormatButton({
+  label,
+  ariaLabel,
+  active,
+  className = "",
+  onClick,
+}: {
+  label: string;
+  ariaLabel?: string;
+  active: boolean;
+  className?: string;
+  onClick(): void;
+}) {
+  return (
+    <button
+      type="button"
+      className={`ds-format-btn ${className} ${active ? "is-active" : ""}`.trim()}
+      aria-label={ariaLabel ?? label}
+      aria-pressed={active}
+      onClick={onClick}
+    >
+      {label}
+    </button>
+  );
+}
+
+function FormatBar({ editor }: { editor: Editor }) {
+  const run = (command: () => boolean) => {
+    command();
+  };
+
+  return (
+    <div className="ds-format-bar" role="toolbar" aria-label="Formatting">
+      <div className="ds-format-group" role="group" aria-label="Text style">
+        <FormatButton
+          label="B"
+          ariaLabel="Bold"
+          className="ds-format-btn--bold"
+          active={editor.isActive("bold")}
+          onClick={() => run(() => editor.chain().focus().toggleBold().run())}
+        />
+        <FormatButton
+          label="I"
+          ariaLabel="Italic"
+          className="ds-format-btn--italic"
+          active={editor.isActive("italic")}
+          onClick={() => run(() => editor.chain().focus().toggleItalic().run())}
+        />
+        <FormatButton
+          label="U"
+          ariaLabel="Underline"
+          className="ds-format-btn--underline"
+          active={editor.isActive("underline")}
+          onClick={() => run(() => editor.chain().focus().toggleUnderline().run())}
+        />
+      </div>
+
+      <div className="ds-format-group" role="group" aria-label="Block style">
+        <FormatButton
+          label="Text"
+          ariaLabel="Paragraph"
+          active={editor.isActive("paragraph")}
+          onClick={() => run(() => setBlockType(editor, "paragraph"))}
+        />
+        <FormatButton
+          label="H1"
+          ariaLabel="Heading 1"
+          active={editor.isActive("heading", { level: 1 })}
+          onClick={() => run(() => toggleHeadingBlock(editor, 1))}
+        />
+        <FormatButton
+          label="H2"
+          ariaLabel="Heading 2"
+          active={editor.isActive("heading", { level: 2 })}
+          onClick={() => run(() => toggleHeadingBlock(editor, 2))}
+        />
+      </div>
+
+      <div className="ds-format-group" role="group" aria-label="Lists">
+        <FormatButton
+          label="Bullets"
+          ariaLabel="Bulleted list"
+          active={editor.isActive("bulletList")}
+          onClick={() => run(() => editor.chain().focus().toggleBulletList().run())}
+        />
+        <FormatButton
+          label="Numbers"
+          ariaLabel="Numbered list"
+          active={editor.isActive("orderedList")}
+          onClick={() => run(() => editor.chain().focus().toggleOrderedList().run())}
+        />
+        <FormatButton
+          label="Checks"
+          ariaLabel="Checklist"
+          active={editor.isActive("taskList")}
+          onClick={() => run(() => editor.chain().focus().toggleTaskList().run())}
+        />
+      </div>
+    </div>
   );
 }
 
@@ -443,7 +509,7 @@ function NoteBody({
 
   const [peers, setPeers] = useState<AwarenessUser[]>([]);
   const [live, setLive] = useState(false);
-  const [listNode, setListNode] = useState<IndentNode | null>(null);
+  const [, setFormatVersion] = useState(0);
   const bodyRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -464,7 +530,9 @@ function NoteBody({
 
   useEffect(() => {
     if (!editor) return;
-    const refresh = () => setListNode(indentNode(editor));
+    const refresh = () => {
+      setFormatVersion((version) => version + 1);
+    };
     editor.on("selectionUpdate", refresh);
     editor.on("transaction", refresh);
     refresh();
@@ -505,7 +573,7 @@ function NoteBody({
     };
   }, [connection]);
 
-  // A horizontal swipe indents or outdents the list line under the thumb. The
+  // A horizontal swipe indents or outdents the block under the thumb. The
   // browser's native touch handling would otherwise begin a text selection or
   // page pan, so only a clearly horizontal gesture is captured.
   useEffect(() => {
@@ -516,6 +584,8 @@ function NoteBody({
     let horizontal = false;
 
     const onStart = (event: globalThis.TouchEvent) => {
+      const target = event.target as Element | null;
+      if (target?.closest?.(".ds-format-bar")) return;
       if (event.touches.length !== 1) return;
       const touch = event.touches[0];
       start = { x: touch.clientX, y: touch.clientY };
@@ -544,10 +614,7 @@ function NoteBody({
       const dx = touch.clientX - from.x;
       const dy = touch.clientY - from.y;
       if (Math.abs(dx) < 64 || Math.abs(dy) > 48) return;
-      const node = indentNode(editor);
-      if (!node) return;
-      if (dx > 0) editor.chain().focus().sinkListItem(node).run();
-      else editor.chain().focus().liftListItem(node).run();
+      indentSelection(editor, dx > 0 ? 1 : -1);
     };
 
     element.addEventListener("touchstart", onStart, { passive: true });
@@ -564,21 +631,20 @@ function NoteBody({
     return <p className="ds-editor-loading">Editing…</p>;
   }
 
-  const canIndent = Boolean(listNode && editor.can().sinkListItem(listNode));
-  const canOutdent = Boolean(listNode && editor.can().liftListItem(listNode));
+  const canIndent = canIndentSelection(editor);
+  const canOutdent = canOutdentSelection(editor);
 
   const indent = () => {
-    if (!listNode) return;
-    editor.chain().focus().sinkListItem(listNode).run();
+    indentSelection(editor, 1);
   };
 
   const outdent = () => {
-    if (!listNode) return;
-    editor.chain().focus().liftListItem(listNode).run();
+    indentSelection(editor, -1);
   };
 
   return (
     <div className="ds-editor-body" ref={bodyRef}>
+      <FormatBar editor={editor} />
       <EditorContent editor={editor} />
 
       <div className="ds-editor-foot">

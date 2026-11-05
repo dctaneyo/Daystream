@@ -6,6 +6,7 @@ import StarterKit from "@tiptap/starter-kit";
 import { useEffect, useMemo, useState } from "react";
 import * as Y from "yjs";
 import { longDate } from "../lib/dates";
+import { IndentExtension } from "../lib/indent";
 import type { PublicNote as PublicNoteData } from "../types";
 
 function decodeBytes(value: string): Uint8Array {
@@ -80,6 +81,7 @@ export function PublicNote({ token }: { token: string }) {
         }),
         TaskList,
         TaskItem.configure({ nested: true }),
+        IndentExtension,
         Collaboration.configure({ document: doc }),
       ],
       editorProps: {

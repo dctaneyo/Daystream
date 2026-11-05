@@ -64,8 +64,9 @@
   drop shadows, emoji or badge soup (`DESIGN.md` UI-01…UI-08). Use only the bespoke 16px stroke
   family in `src/components/Icon.tsx`; pair icons with labels except conventional controls with
   accessible names.
-- Every capability has a tap-reachable control. Phone keyboards have no Tab, so list indentation has
-  Outdent/Indent buttons beside the swipe gesture, and pinning has three visible choices.
+- Every capability has a tap-reachable control. Phone keyboards have no Tab, so block and list
+  indentation have Outdent/Indent buttons beside the swipe gesture, and pinning has three visible
+  choices. The editor's formatting bar carries bold, italic, underline, headings and list toggles.
 - Never use browser primitives for product UI: no `window.confirm`/`alert`/`prompt`, `<select>`,
   `<dialog>`, native validation bubbles, or `title` as the only carrier of information. Inline
   two-tap confirmation and the existing sheet components are the pattern.
