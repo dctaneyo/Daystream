@@ -1,57 +1,120 @@
+import { existsSync } from "node:fs";
 import { createServer } from "node:http";
-import next from "next";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import express from "express";
 import { WebSocketServer } from "ws";
-import { hocuspocus, closeCollab } from "./collab.mjs";
+import { api } from "./api.mjs";
+import { closeCollab, hocuspocus } from "./collab.mjs";
+import { pool } from "./db.mjs";
 import { migrate } from "./migrate.mjs";
 
-// Railway hands you the public domain without a scheme (${{RAILWAY_PUBLIC_DOMAIN}}),
-// and next-auth throws `TypeError: Invalid URL` the moment it reads a scheme-less
-// AUTH_URL, which surfaces as a bare 500 page. Normalise it before Next loads.
-const authUrl = process.env.AUTH_URL?.trim();
-if (authUrl && !/^[a-z][a-z0-9+.-]*:\/\//i.test(authUrl)) {
-  process.env.AUTH_URL = `https://${authUrl}`;
-  console.log(`[env] AUTH_URL had no scheme, using https://${authUrl}`);
+const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
+
+// Local convenience: `.env.local` (ignored) then `.env`. Railway injects its own
+// variables, and an explicitly exported value always wins.
+for (const file of [".env.local", ".env"]) {
+  const full = path.join(root, file);
+  if (existsSync(full) && typeof process.loadEnvFile === "function") {
+    try {
+      process.loadEnvFile(full);
+    } catch {
+      /* malformed env files should not stop the boot */
+    }
+  }
 }
 
-// Dev mode is opt-in via `--dev` (npm run dev). Inferring it from NODE_ENV meant a
-// host that does not set NODE_ENV=production would boot Next in dev mode.
 const dev = process.argv.includes("--dev");
 const port = Number(process.env.PORT || 3000);
-// Bind every interface. Railway and Docker both set HOSTNAME to the container's own
-// name, which pinned the listener to one resolved address instead of 0.0.0.0.
-const hostname = "0.0.0.0";
+const host = "0.0.0.0";
+const distDir = path.join(root, "dist");
 
-await migrate({ log: (line) => console.log(line) });
+if (!process.env.AUTH_SECRET || process.env.AUTH_SECRET.length < 16) {
+  console.error("[boot] AUTH_SECRET must be set to at least 16 characters.");
+  process.exit(1);
+}
 
-const app = next({ dev, hostname, port });
-const handle = app.getRequestHandler();
-await app.prepare();
+await migrate();
 
-const server = createServer((req, res) => {
-  handle(req, res);
+const app = express();
+app.set("trust proxy", 1);
+app.disable("x-powered-by");
+app.use(express.json({ limit: "64kb" }));
+app.use((req, res, next) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("Referrer-Policy", "same-origin");
+  next();
+});
+app.use("/api", api);
+
+const server = createServer(app);
+
+if (dev) {
+  const { createServer: createViteServer } = await import("vite");
+  const allowedHosts = (process.env.PREVIEW_HOSTNAME ?? "")
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+  const vite = await createViteServer({
+    root,
+    appType: "spa",
+    server: {
+      middlewareMode: true,
+      hmr: { server },
+      allowedHosts,
+    },
+  });
+  app.use(vite.middlewares);
+} else {
+  if (!existsSync(path.join(distDir, "index.html"))) {
+    console.error("[boot] dist/index.html is missing — run `npm run build` first.");
+    process.exit(1);
+  }
+  const indexHtml = path.join(distDir, "index.html");
+  app.use(
+    "/assets",
+    express.static(path.join(distDir, "assets"), {
+      immutable: true,
+      maxAge: "1y",
+    }),
+  );
+  app.use(express.static(distDir, { index: false, maxAge: "1h" }));
+  app.use((req, res, next) => {
+    if (req.method !== "GET" || req.path.startsWith("/api/")) return next();
+    res.setHeader("Cache-Control", "no-cache");
+    res.sendFile(indexHtml);
+  });
+  app.use((req, res) => {
+    res.status(404).json({ error: "not_found" });
+  });
+}
+
+app.use((error, req, res, next) => {
+  console.error("[http]", error);
+  if (res.headersSent) return next(error);
+  res.status(500).json({ error: "server_error" });
 });
 
-// One process, one port: Hocuspocus WebSockets live at /collab next to Next.
-// Next's own dev HMR socket also upgrades on this server, so unknown paths are
-// left alone for its listener.
+/*
+ * One process, one port: Yjs sync, awareness presence and the HTTP API share
+ * the same listener. Railway routes a single public port, and this keeps the
+ * sockets on the same origin as the page (no extra realtime service).
+ */
 const wss = new WebSocketServer({ noServer: true });
 
 server.on("upgrade", (req, socket, head) => {
   let pathname = "";
   try {
-    pathname = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`).pathname;
+    pathname = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`)
+      .pathname;
   } catch {
     return;
   }
+  // Leave every other upgrade (Vite's HMR socket in development) alone.
   if (pathname !== "/collab") return;
-  if (process.env.DEBUG_WS) console.log("[collab] upgrade requested", req.url);
 
   try {
     wss.handleUpgrade(req, socket, head, (ws) => {
-      if (process.env.DEBUG_WS) console.log("[collab] socket open");
-
-      // Hocuspocus 4 hands back a ClientConnection and expects the host server
-      // to pump socket events into it (its own Server does this via crossws).
       const connection = hocuspocus.handleConnection(ws, req);
 
       ws.on("message", (data) => {
@@ -68,7 +131,6 @@ server.on("upgrade", (req, socket, head) => {
       ws.on("pong", () => connection.touch());
 
       ws.on("close", (code, reason) => {
-        if (process.env.DEBUG_WS) console.log("[collab] socket closed", code);
         try {
           connection.handleClose({
             code,
@@ -87,12 +149,9 @@ server.on("upgrade", (req, socket, head) => {
   }
 });
 
-server.listen(port, hostname, () => {
-  const address = server.address();
-  const bound =
-    address && typeof address === "object" ? `${address.address}:${address.port}` : `${hostname}:${port}`;
-  console.log(`> Daystream listening on http://${bound} (${dev ? "development" : "production"})`);
-  console.log(`> Realtime endpoint: /collab`);
+server.listen(port, host, () => {
+  console.log(`> Daystream on http://${host}:${port} (${dev ? "development" : "production"})`);
+  console.log("> Realtime: /collab");
 });
 
 let shuttingDown = false;
@@ -102,11 +161,8 @@ async function shutdown(signal) {
   console.log(`[server] ${signal} received, shutting down`);
   wss.close();
   server.close();
-  try {
-    await closeCollab();
-  } catch {
-    // ignore
-  }
+  await closeCollab().catch(() => {});
+  await pool.end().catch(() => {});
   process.exit(0);
 }
 

@@ -2,25 +2,19 @@
 public/icons/*.png
 
 node_modules/
-.next/
-out/
-build/
 dist/
+.vite/
+artifacts/
 
 .env
 .env.local
 .env.*.local
-.dev.vars
 
 .pgdata/
-data/
+.runtime/
 *.log
 
 .DS_Store
 Thumbs.db
 
 *.tsbuildinfo
-next-env.d.ts
-
-.railway/
-.runtime/

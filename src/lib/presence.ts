@@ -1,17 +1,14 @@
-/**
- * Everything that travels over Yjs awareness: who is in the room, and where
- * their caret currently sits inside one Thing.
- *
- * Awareness is ephemeral by design — it is never written to the document — so a
- * dropped socket simply removes the peer from the map.
- */
-export type ConnectionStatus = "connecting" | "connected" | "reconnecting" | "offline";
+import type { AwarenessUser } from "../types";
 
-export type Peer = { id: number; name: string; color: string };
+// Muted, printable inks only — presence should read as pencil annotations, not
+// as neon. Each is dark enough for white caret labels on the light canvas.
+const INKS = ["#4A5D4E", "#4A5568", "#8C6239", "#742A2A", "#3F5B58", "#6B5B4A"];
 
-export type PeerCursor = Peer & { start: number; end: number };
-
-/** Block id -> the remote carets inside that block. */
-export type CursorMap = Record<string, PeerCursor[]>;
-
-export type AwarenessCursor = { blockId: string; start: number; end: number };
+export function awarenessUser(userId: string): AwarenessUser {
+  const sum = [...userId].reduce((total, character) => total + character.charCodeAt(0), 0);
+  return {
+    id: userId,
+    name: userId,
+    color: INKS[sum % INKS.length] ?? INKS[0],
+  };
+}

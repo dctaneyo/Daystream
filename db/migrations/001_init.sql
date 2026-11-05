@@ -1,58 +1,137 @@
--- Daystream initial schema.
--- `things` is a projection of the Yjs daily documents: it exists so calendar
--- heat-maps, search and roll-ups are plain SQL, while live editing stays CRDT.
+-- Daystream — clean-slate schema.
+--
+-- Daystream was rebuilt from scratch on the date-anchored notes specification,
+-- so this migration replaces the previous product's tables outright. It runs
+-- once per database (tracked in _daystream_migrations).
 
-CREATE TABLE IF NOT EXISTS users (
-  id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  email         text NOT NULL UNIQUE,
-  name          text,
-  password_hash text,
-  created_at    timestamptz NOT NULL DEFAULT now()
+DROP TABLE IF EXISTS
+  things,
+  yjs_documents,
+  note_members,
+  admin_audit_log,
+  sessions,
+  accounts,
+  verification_tokens,
+  workspace_members,
+  notes,
+  templates,
+  workspaces,
+  users
+CASCADE;
+
+CREATE TABLE users (
+  user_id    VARCHAR(6) PRIMARY KEY, -- randomized distinct 6-digit identification token
+  pin_hash   VARCHAR(255) NOT NULL,  -- bcrypt hash of the 6-digit PIN
+  is_admin   BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS workspaces (
-  id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  name       text NOT NULL,
-  owner_id   uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  created_at timestamptz NOT NULL DEFAULT now()
+CREATE TABLE workspaces (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name       VARCHAR(255) NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS workspace_members (
-  workspace_id uuid NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
-  user_id      uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  role         text NOT NULL DEFAULT 'owner',
-  created_at   timestamptz NOT NULL DEFAULT now(),
+CREATE TABLE workspace_members (
+  workspace_id UUID REFERENCES workspaces(id) ON DELETE CASCADE,
+  user_id      VARCHAR(6) REFERENCES users(user_id) ON DELETE CASCADE,
+  role         VARCHAR(50) DEFAULT 'editor', -- admin, editor, viewer
   PRIMARY KEY (workspace_id, user_id)
 );
 
-CREATE INDEX IF NOT EXISTS workspace_members_user_idx
-  ON workspace_members (user_id);
-
-CREATE TABLE IF NOT EXISTS things (
-  id           text PRIMARY KEY,
-  workspace_id uuid NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
-  room_date    date,
-  sort_order   integer NOT NULL DEFAULT 0,
-  type         text NOT NULL DEFAULT 'text',
-  content      text NOT NULL DEFAULT '',
-  is_completed boolean NOT NULL DEFAULT false,
-  created_by   uuid REFERENCES users(id) ON DELETE SET NULL,
-  created_at   timestamptz NOT NULL DEFAULT now(),
-  updated_at   timestamptz NOT NULL DEFAULT now()
+CREATE TABLE templates (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  title      VARCHAR(255) NOT NULL,
+  structure  JSONB NOT NULL, -- modular structured layout representation
+  created_by VARCHAR(6) REFERENCES users(user_id) ON DELETE SET NULL
 );
 
-CREATE INDEX IF NOT EXISTS things_calendar_idx
-  ON things (workspace_id, room_date);
-
-CREATE INDEX IF NOT EXISTS things_search_idx
-  ON things USING gin (to_tsvector('english', content));
-
-CREATE TABLE IF NOT EXISTS yjs_documents (
-  room_name    text PRIMARY KEY,
-  workspace_id uuid NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
-  state        bytea NOT NULL,
-  updated_at   timestamptz NOT NULL DEFAULT now()
+CREATE TABLE notes (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id       VARCHAR(6) REFERENCES users(user_id) ON DELETE SET NULL,
+  workspace_id  UUID REFERENCES workspaces(id) ON DELETE SET NULL,
+  content       BYTEA, -- Yjs CRDT binary state (delta log updates)
+  assigned_date DATE NOT NULL,
+  sort_order    REAL NOT NULL DEFAULT 0.0,
+  pin_mode      VARCHAR(10) DEFAULT 'none', -- none | global | day
+  template_id   UUID REFERENCES templates(id) ON DELETE SET NULL,
+  created_at    TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at    TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  -- List projections, rewritten when the CRDT document is stored. Keeping them
+  -- here means the day and the held tray are one indexed query, not a decode of
+  -- every note's binary state.
+  title         VARCHAR(255) NOT NULL DEFAULT '',
+  excerpt       TEXT NOT NULL DEFAULT '',
+  CONSTRAINT notes_pin_mode_valid CHECK (pin_mode IN ('none', 'global', 'day'))
 );
 
-CREATE INDEX IF NOT EXISTS yjs_documents_workspace_idx
-  ON yjs_documents (workspace_id);
+CREATE INDEX idx_notes_assigned_date ON notes(assigned_date);
+CREATE INDEX idx_notes_workspace ON notes(workspace_id);
+CREATE INDEX idx_notes_day_order ON notes(workspace_id, assigned_date, sort_order);
+CREATE INDEX idx_notes_global_pins ON notes(workspace_id, sort_order) WHERE pin_mode = 'global';
+CREATE INDEX idx_notes_owner ON notes(user_id);
+CREATE INDEX idx_workspace_members_user ON workspace_members(user_id);
+
+CREATE OR REPLACE FUNCTION daystream_touch_updated_at() RETURNS trigger AS $$
+BEGIN
+  NEW.updated_at = CURRENT_TIMESTAMP;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER notes_touch_updated_at
+BEFORE UPDATE ON notes
+FOR EACH ROW EXECUTE FUNCTION daystream_touch_updated_at();
+
+-- Three starter layouts. `created_by` stays NULL so everyone can use them, and
+-- editing one creates an ordinary note rather than mutating the template.
+INSERT INTO templates (title, structure) VALUES
+(
+  'Daily page',
+  '{"blocks":[
+    {"type":"h1","text":"Daily page"},
+    {"type":"p","text":""},
+    {"type":"h2","text":"Today"},
+    {"type":"bullet","text":""},
+    {"type":"bullet","text":""},
+    {"type":"bullet","text":""},
+    {"type":"h2","text":"What happened"},
+    {"type":"p","text":""},
+    {"type":"h2","text":"Tomorrow"},
+    {"type":"bullet","text":""}
+  ]}'::jsonb
+),
+(
+  'Meeting',
+  '{"blocks":[
+    {"type":"h1","text":"Meeting"},
+    {"type":"p","text":""},
+    {"type":"h2","text":"Attendees"},
+    {"type":"p","text":""},
+    {"type":"h2","text":"Agenda"},
+    {"type":"bullet","text":""},
+    {"type":"bullet","text":""},
+    {"type":"bullet","text":""},
+    {"type":"h2","text":"Decisions"},
+    {"type":"p","text":""},
+    {"type":"h2","text":"Follow-ups"},
+    {"type":"check","text":""},
+    {"type":"check","text":""}
+  ]}'::jsonb
+),
+(
+  'Weekly review',
+  '{"blocks":[
+    {"type":"h1","text":"Weekly review"},
+    {"type":"h2","text":"Moved"},
+    {"type":"bullet","text":""},
+    {"type":"bullet","text":""},
+    {"type":"bullet","text":""},
+    {"type":"h2","text":"Stalled"},
+    {"type":"bullet","text":""},
+    {"type":"bullet","text":""},
+    {"type":"h2","text":"Next week"},
+    {"type":"p","text":""},
+    {"type":"quote","text":""}
+  ]}'::jsonb
+);

@@ -23,9 +23,13 @@ export async function migrate({ log = console.log } = {}) {
     `);
 
     const applied = new Set(
-      (await client.query("SELECT name FROM _daystream_migrations")).rows.map((r) => r.name),
+      (await client.query("SELECT name FROM _daystream_migrations")).rows.map(
+        (row) => row.name,
+      ),
     );
-    const files = (await readdir(migrationsDir)).filter((f) => f.endsWith(".sql")).sort();
+    const files = (await readdir(migrationsDir))
+      .filter((file) => file.endsWith(".sql"))
+      .sort();
 
     for (const file of files) {
       if (applied.has(file)) continue;
@@ -33,7 +37,10 @@ export async function migrate({ log = console.log } = {}) {
       await client.query("BEGIN");
       try {
         await client.query(sql);
-        await client.query("INSERT INTO _daystream_migrations (name) VALUES ($1)", [file]);
+        await client.query(
+          "INSERT INTO _daystream_migrations (name) VALUES ($1)",
+          [file],
+        );
         await client.query("COMMIT");
         log(`[db] applied ${file}`);
       } catch (error) {

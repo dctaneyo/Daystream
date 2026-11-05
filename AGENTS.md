@@ -4,57 +4,51 @@
 
 - After any code change, **commit and push to `main`** so Railway redeploys immediately. Do not
   leave finished work uncommitted.
-- Verify before pushing: `npx tsc --noEmit` and `npm run build`. When auth, data or realtime code
-  changed, also run `node scripts/smoke.mjs` against a running server.
+- Verify before pushing: `npx tsc --noEmit`, `npm run build`, and `node scripts/smoke.mjs` against a
+  running server for anything touching auth, notes, realtime or the schema.
 - Keep commit messages descriptive of the intent, not a file list.
 
 ## Secrets
 
 - Never commit secrets. `.env`, `.env.local`, `.runtime/` and `.pgdata/` are gitignored.
-- Production config lives in Railway service variables (`DATABASE_URL`, `AUTH_SECRET`, `AUTH_URL`,
-  `AUTH_TRUST_HOST`, optional `APP_TIMEZONE`).
+- Production config lives in Railway service variables: `DATABASE_URL`, `AUTH_SECRET`, and
+  optionally `AUTH_URL`, `APP_TIMEZONE`, `COOKIE_SECURE`.
+- The sandbox reads a GitHub token from `.env.local` as a project secret. Never echo it, and never
+  write it into a tracked file.
 
 ## Stack notes
 
-- Single Railway service: `server/index.mjs` hosts Next and the Hocuspocus WebSocket at `/collab`.
-  Migrations run at boot; do not add a separate release step.
-- Do not enable `output: "standalone"` — it conflicts with the custom server.
-- `db/migrations/*.sql` are append-only; add a new numbered file instead of editing an applied one.
+- Single Railway service, one port: `server/index.mjs` serves the Vite build and hosts the
+  Hocuspocus WebSocket at `/collab`. Migrations run at boot; there is no separate release step.
+- The client is a Vite + React SPA (`src/`). There is no SSR and no Next.js.
+- `db/migrations/*.sql` are append-only. Add a new numbered file instead of editing an applied one.
+  Migration `001_init.sql` is a deliberate clean slate and drops the previous product's tables.
+- Server code is plain ESM in `server/`. It is not typechecked by `tsc`; keep it small and explicit.
+- Postgres `date` values are returned as `YYYY-MM-DD` strings (`server/db.mjs`); never convert them
+  through `Date` on the server, or a note will move a day in another timezone.
 
 ## Design rules
 
-- `DESIGN.md` is the design system: `UX-nn` rules (behaviour) outrank `UI-nn` rules (appearance)
-  when they conflict. Read it before changing any UI, and cite the rule your change serves.
-- The model is Workspace → Note → Thing: a Thing lives in exactly one Note and carries a day, so a
-  new lane a Thing can be typed into is a design change, not a feature.
-- **Mobile is the design target**, not the shrunk case (~95% of use is one thumb on a phone): build
-  and check a screen at 390×844 before widening it, and treat anything only complete at `lg` as
-  unfinished.
-- Every capability needs a tap-reachable control, not just a shortcut: phone keyboards have no
-  `Ctrl`/`Cmd`/`Alt`/`Option`/arrows and no usable `Shift`. Ship the on-screen twin with the shortcut
-  (`DESIGN.md` UX-31/UX-32, table in §5.5).
-- **Bespoke over templated.** Generated-app tells are banned by `DESIGN.md` §8 `VI-01…VI-12`:
-  gradients, glass cards, emoji, an icon per label, badge soup, sparkle affordances. Every screen
-  names its signature element and passes the cover test (`VI-10`) with the brand hidden at 390×844.
-- New fonts, icon sets, animation libraries or component kits are design decisions, not conveniences:
-  they need a rule in `DESIGN.md` and a UX rule served, in the same change (`VI-07`).
-- The app is **one view**: `/app` is the day, its Notes, and the Things typed straight into them
-  (`DESIGN.md` UX-23). Days are a `?d=` parameter, and search, the backlog and the scratchpad are
-  sheets over that view — no Note page, no search page, no feed. A Thing is a line inside a Note,
-  created by pressing return in that Note's body (`UX-33`); never add a composer that is not a Note.
-- Deploys change the code under open tabs: keep the build identity honest (`/api/version`, the
-  `daystream-build` meta tag) and never let an update reload in a loop (`DESIGN.md` UX-34).
+- `DESIGN.md` is the design system. Read it before changing UI and cite the rule the change serves.
+- **Mobile is the design target**: build and check at 390×844 first; anything only complete at
+  desktop width is unfinished.
+- The app is one view: a day, its notes, and the held tray. No note page, no feed, no search page.
+  Notes open as a full-screen editor; settings and templates are sheets over the day.
+- The page is paper: 1px hairlines, native fonts, flat ink. No card containers, gradients, glow,
+  drop shadows, icon sets, emoji or badge soup (`DESIGN.md` UI-01…UI-08).
+- Every capability has a tap-reachable control. Phone keyboards have no Tab, so list indentation has
+  Outdent/Indent buttons beside the swipe gesture, and pinning has three visible choices.
 - Never use browser primitives for product UI: no `window.confirm`/`alert`/`prompt`, `<select>`,
-  `<dialog>`, native validation bubbles, or `title` tooltips as the only carrier of information.
-  Build or reuse the components in `src/components` instead (`DESIGN.md` UI-13).
-- If a change needs a rule that isn't written down, add the rule to `DESIGN.md` in the same commit.
+  `<dialog>`, native validation bubbles, or `title` as the only carrier of information. Inline
+  two-tap confirmation and the existing sheet components are the pattern.
+- Editing is local-first: text goes into the Yjs document and IndexedDB before the network. Do not
+  add a save button, a debounce that blocks typing, or polling for freshness.
+- Pinning is a two-mode contract (`DESIGN.md` UX-12): `global` leaves the day entirely and lives in
+  the tray; `day` keeps the date and takes rank zero; `none` is ordinary. Never invent a third
+  meaning for the pin control.
 
 ## Pushing
 
-- Target: `git push origin HEAD:main` (the remote is `https://github.com/dctaneyo/Daystream.git`).
-- The sandbox needs credentials for that: a fine-grained PAT with **Contents: read & write** stored
-  as a project secret named `GITHUB_TOKEN`. Use a one-off credential helper and never echo the value.
-- History is reconciled: `main` was force-pushed from this branch, so `origin/main` now shares this
-  history and `package-lock.json` is tracked again. If it ever diverges, `--force-with-lease` is the
-  intended repair — but confirm with the user first, because it rewrites the branch.
+- Target: `git push origin HEAD:main` (remote `https://github.com/dctaneyo/Daystream.git`).
+- If history diverges, do not force-push without confirming with the user.
 - Generated icons (`public/icons/*.png`) stay gitignored and are recreated by `prebuild`.

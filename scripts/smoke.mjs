@@ -1,318 +1,328 @@
-import bcrypt from "bcryptjs";
-import { SignJWT } from "jose";
-import * as Y from "yjs";
 import { HocuspocusProvider } from "@hocuspocus/provider";
-import pg from "pg";
+import * as Y from "yjs";
 
-/**
- * End-to-end smoke test against a running Daystream server.
- *  1. health + 6-digit ID/PIN login through Auth.js
- *  2. admin console access, and a non-admin being bounced out of it
- *  3. PIN lockout after repeated failures
- *  4. collab token, Yjs sync over WebSocket, Postgres persistence + projection
- *  5. search over the projection
- */
+const base = process.env.SMOKE_URL ?? "http://127.0.0.1:3000";
+const wsUrl = base.replace(/^http/, "ws") + "/collab";
 
-const BASE = process.env.SMOKE_BASE_URL || "http://127.0.0.1:3000";
-const WS_URL = BASE.replace(/^http/, "ws") + "/collab";
-const SECRET = process.env.AUTH_SECRET;
-const DATABASE_URL = process.env.DATABASE_URL;
+let passed = 0;
+let failed = 0;
 
-const ADMIN = { publicId: "100001", pin: "123456" };
-const MEMBER = { publicId: "100002", pin: "654321" };
-const LOCKOUT_ID = "100003";
-
-const results = [];
-function check(name, ok, detail = "") {
-  results.push({ name, ok, detail });
-  console.log(`${ok ? "PASS" : "FAIL"}  ${name}${detail ? ` — ${detail}` : ""}`);
+function check(name, condition, detail = "") {
+  if (condition) {
+    passed += 1;
+    console.log(`✓ ${name}`);
+    return;
+  }
+  failed += 1;
+  console.error(`✗ ${name}${detail ? ` — ${detail}` : ""}`);
 }
 
-function cookiePairs(response) {
-  const raw = response.headers.getSetCookie?.() ?? [];
-  return raw.map((entry) => entry.split(";")[0]).join("; ");
+function assert(condition, message) {
+  if (!condition) throw new Error(message);
 }
 
-function mergeCookies(...headers) {
-  const jar = new Map();
-  for (const header of headers.filter(Boolean)) {
-    for (const pair of header.split("; ")) {
-      const [name, ...rest] = pair.split("=");
-      if (name) jar.set(name, `${name}=${rest.join("=")}`);
+function localDateKey() {
+  const now = new Date();
+  const pad = (value) => String(value).padStart(2, "0");
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+}
+
+class Jar {
+  constructor() {
+    this.cookies = new Map();
+  }
+
+  absorb(response) {
+    const list =
+      typeof response.headers.getSetCookie === "function"
+        ? response.headers.getSetCookie()
+        : [];
+    for (const entry of list) {
+      const [pair] = entry.split(";");
+      const index = pair.indexOf("=");
+      if (index === -1) continue;
+      const name = pair.slice(0, index).trim();
+      const value = pair.slice(index + 1).trim();
+      if (value) this.cookies.set(name, value);
+      else this.cookies.delete(name);
     }
   }
-  return [...jar.values()].join("; ");
-}
 
-async function waitForHealth() {
-  for (let attempt = 0; attempt < 40; attempt += 1) {
-    try {
-      const response = await fetch(`${BASE}/api/health`);
-      if (response.ok) return await response.json();
-    } catch {
-      // not up yet
-    }
-    await new Promise((resolve) => setTimeout(resolve, 500));
+  header() {
+    return [...this.cookies].map(([name, value]) => `${name}=${value}`).join("; ");
   }
-  throw new Error("server never became healthy");
 }
 
-async function login({ publicId, pin }) {
-  const csrfResponse = await fetch(`${BASE}/api/auth/csrf`);
-  const csrfCookies = cookiePairs(csrfResponse);
-  const { csrfToken } = await csrfResponse.json();
-
-  const response = await fetch(`${BASE}/api/auth/callback/credentials`, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded", cookie: csrfCookies },
-    body: new URLSearchParams({ csrfToken, userId: publicId, pin, callbackUrl: `${BASE}/app` }),
+async function call(jar, path, options = {}) {
+  const response = await fetch(`${base}/api${path}`, {
+    method: options.method ?? "GET",
+    headers: {
+      ...(options.body ? { "content-type": "application/json" } : {}),
+      ...(jar ? { cookie: jar.header() } : {}),
+    },
+    body: options.body ? JSON.stringify(options.body) : undefined,
     redirect: "manual",
   });
-
-  const cookies = mergeCookies(csrfCookies, cookiePairs(response));
-  return { status: response.status, cookies, signedIn: cookies.includes("session-token") };
+  jar?.absorb(response);
+  const data = await response.json().catch(() => ({}));
+  return { status: response.status, data };
 }
 
-const health = await waitForHealth();
-check("health endpoint", health.ok === true, JSON.stringify(health));
-
-const landing = await fetch(`${BASE}/`);
-const landingHtml = landing.status === 200 ? await landing.text() : "";
-check(
-  "theme control + pre-paint script present",
-  landingHtml.includes('data-theme-option="system"') &&
-    landingHtml.includes('data-theme-option="dark"') &&
-    landingHtml.includes("daystream-theme"),
-);
-
-const adminLogin = await login(ADMIN);
-check("admin PIN login", adminLogin.status < 400 && adminLogin.signedIn, `status ${adminLogin.status}`);
-
-const today = new Date().toISOString().slice(0, 10);
-
-const dayPage = await fetch(`${BASE}/app`, { headers: { cookie: adminLogin.cookies }, redirect: "manual" });
-const dayHtml = dayPage.status === 200 ? await dayPage.text() : "";
-check("day page renders for admin", dayPage.status === 200 && dayHtml.includes("Daystream"), `status ${dayPage.status}`);
-check(
-  "day view lists the Notes for that day",
-  dayHtml.includes('data-day-notes="true"') && dayHtml.includes('aria-label="New Note"'),
-);
-check("keyboard-aware viewport configured", dayHtml.includes("resizes-content"), "interactive-widget");
-
-const anon = await fetch(`${BASE}/app`, { redirect: "manual" });
-check("app redirects anonymous users", anon.status === 307 || anon.status === 302, `status ${anon.status}`);
-
-const adminConsole = await fetch(`${BASE}/admin`, { headers: { cookie: adminLogin.cookies }, redirect: "manual" });
-const adminHtml = adminConsole.status === 200 ? await adminConsole.text() : "";
-check("admin console renders", adminConsole.status === 200 && adminHtml.includes("Overview"), `status ${adminConsole.status}`);
-
-const adminUsers = await fetch(`${BASE}/admin/users`, { headers: { cookie: adminLogin.cookies }, redirect: "manual" });
-const adminUsersHtml = adminUsers.status === 200 ? await adminUsers.text() : "";
-check(
-  "admin users page lists accounts",
-  adminUsers.status === 200 && adminUsersHtml.includes(ADMIN.publicId),
-  `status ${adminUsers.status}`,
-);
-
-const memberLogin = await login(MEMBER);
-check("member PIN login", memberLogin.status < 400 && memberLogin.signedIn, `status ${memberLogin.status}`);
-
-const memberAdmin = await fetch(`${BASE}/admin`, { headers: { cookie: memberLogin.cookies }, redirect: "manual" });
-check("non-admin bounced from /admin", memberAdmin.status === 307 || memberAdmin.status === 302, `status ${memberAdmin.status}`);
-
-const badPin = await login({ publicId: ADMIN.publicId, pin: "000000" });
-check("wrong PIN rejected", !badPin.signedIn);
-
-const client = new pg.Client({ connectionString: DATABASE_URL });
-await client.connect();
-
-// Throwaway account for the lockout test.
-await client.query(
-  `INSERT INTO users (public_id, name, pin_hash, is_admin, status)
-   VALUES ($1, 'Lockout Test', $2, false, 'active')
-   ON CONFLICT (public_id) DO UPDATE
-     SET pin_hash = EXCLUDED.pin_hash, failed_attempts = 0, locked_until = NULL, status = 'active'`,
-  [LOCKOUT_ID, await bcrypt.hash("999999", 10)],
-);
-for (let attempt = 0; attempt < 5; attempt += 1) {
-  await login({ publicId: LOCKOUT_ID, pin: "111111" });
-}
-const locked = await client.query("SELECT locked_until FROM users WHERE public_id = $1", [LOCKOUT_ID]);
-check("account locks after 5 failures", Boolean(locked.rows[0]?.locked_until));
-
-const lockedLogin = await login({ publicId: LOCKOUT_ID, pin: "999999" });
-check("correct PIN refused while locked", !lockedLogin.signedIn);
-await client.query(
-  "UPDATE users SET failed_attempts = 0, locked_until = NULL WHERE public_id = $1",
-  [LOCKOUT_ID],
-);
-
-const seeded = await client.query(
-  `SELECT u.id AS user_id, w.id AS workspace_id
-     FROM users u
-     JOIN workspaces w ON w.owner_id = u.id
-    WHERE u.public_id = $1
-    ORDER BY w.created_at ASC
-    LIMIT 1`,
-  [ADMIN.publicId],
-);
-if (seeded.rows.length === 0) throw new Error("run `npm run seed:dev` first");
-const { user_id: userId, workspace_id: workspaceId } = seeded.rows[0];
-const room = `${workspaceId}:${today}`;
-
-const tokenResponse = await fetch(`${BASE}/api/collab-token?room=${encodeURIComponent(room)}`, {
-  headers: { cookie: adminLogin.cookies },
-});
-const tokenBody = await tokenResponse.json();
-check("collab token endpoint", tokenResponse.status === 200 && typeof tokenBody.token === "string", `status ${tokenResponse.status}`);
-
-const forbidden = await fetch(
-  `${BASE}/api/collab-token?room=${encodeURIComponent("00000000-0000-4000-8000-000000000000:" + today)}`,
-  { headers: { cookie: adminLogin.cookies } },
-);
-check("collab token rejects foreign workspace", forbidden.status === 403, `status ${forbidden.status}`);
-
-// Mirrors src/lib/collab-token.ts: the token names the room it was minted for.
-const minted = await new SignJWT({ wid: workspaceId, room, name: "Smoke Tester", color: "#7c8cff" })
-  .setProtectedHeader({ alg: "HS256" })
-  .setSubject(userId)
-  .setIssuer("daystream")
-  .setIssuedAt()
-  .setExpirationTime("1h")
-  .sign(new TextEncoder().encode(SECRET));
-
-function connect(doc) {
-  const provider = new HocuspocusProvider({
-    url: WS_URL,
-    name: room,
-    token: minted,
-    document: doc,
-    WebSocketPolyfill: WebSocket,
-  });
+function waitForSync(provider) {
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error("websocket sync timeout")), 10_000);
+    if (provider.isSynced) {
+      resolve();
+      return;
+    }
+    const timer = setTimeout(() => reject(new Error("collab sync timed out")), 10_000);
     provider.on("synced", () => {
       clearTimeout(timer);
-      resolve(provider);
-    });
-    provider.on("authenticationFailed", () => {
-      clearTimeout(timer);
-      reject(new Error("authentication failed"));
+      resolve();
     });
   });
 }
 
-const docA = new Y.Doc();
-const providerA = await connect(docA);
-check("websocket authenticated + synced", true);
-
-// The same token must not open a sibling room.
-const crossRoomDoc = new Y.Doc();
-const crossRoomRejected = await new Promise((resolve) => {
+async function connect(room, token, doc) {
   const provider = new HocuspocusProvider({
-    url: WS_URL,
-    name: `${workspaceId}:backlog`,
-    token: minted,
-    document: crossRoomDoc,
+    url: wsUrl,
+    name: room,
+    document: doc,
+    token,
     WebSocketPolyfill: WebSocket,
   });
-  const timer = setTimeout(() => {
-    provider.destroy();
-    resolve(false);
-  }, 6000);
   provider.on("authenticationFailed", () => {
-    clearTimeout(timer);
-    provider.destroy();
-    resolve(true);
+    console.error("[smoke] provider authentication failed", room);
   });
-});
-check("collab token is bound to its room", crossRoomRejected);
+  await waitForSync(provider);
+  return provider;
+}
 
-const blocks = docA.getArray("blocks");
-const makeBlock = (id, content, type = "text") => {
-  const map = new Y.Map();
-  map.set("id", id);
-  map.set("type", type);
-  map.set("content", content);
-  map.set("done", false);
-  map.set("createdAt", Date.now());
-  map.set("createdBy", userId);
-  return map;
-};
-const idA = crypto.randomUUID();
-const idB = crypto.randomUUID();
-docA.transact(() => {
-  blocks.push([
-    makeBlock(idA, "Conveyor line B jamming during shift."),
-    makeBlock(idB, "Call about replacement part order.", "todo"),
-  ]);
-});
-check("blocks written to local doc", blocks.length >= 2, `${blocks.length} blocks`);
+function writeLine(doc, text) {
+  const paragraph = new Y.XmlElement("paragraph");
+  paragraph.insert(0, [new Y.XmlText(text)]);
+  doc.getXmlFragment("default").insert(doc.getXmlFragment("default").length, [paragraph]);
+}
 
-await new Promise((resolve) => setTimeout(resolve, 3000));
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-const stored = await client.query("SELECT length(state) AS bytes FROM yjs_documents WHERE room_name = $1", [room]);
-check("yjs document persisted", stored.rows.length === 1 && Number(stored.rows[0].bytes) > 0, stored.rows[0] ? `${stored.rows[0].bytes} bytes` : "missing");
+const date = localDateKey();
+const jarA = new Jar();
 
-const projected = await client.query(
-  "SELECT id, type, content FROM things WHERE workspace_id = $1 AND room_date = $2 ORDER BY sort_order",
-  [workspaceId, today],
-);
-check("SQL projection of blocks", projected.rows.length >= 2 && projected.rows.some((row) => row.type === "todo"), `${projected.rows.length} rows`);
+try {
+  const health = await call(null, "/health");
+  check("health endpoint", health.status === 200 && health.data.ok === true);
 
-const docB = new Y.Doc();
-const providerB = await connect(docB);
-await new Promise((resolve) => setTimeout(resolve, 800));
-check("second client receives blocks", docB.getArray("blocks").length >= 2, `${docB.getArray("blocks").length} blocks`);
+  const registered = await call(jarA, "/auth/register", {
+    method: "POST",
+    body: { pin: "482913" },
+  });
+  assert(registered.status === 201, `register returned ${registered.status}`);
+  const userIdA = registered.data.user.userId;
+  const workspaceId = registered.data.workspace.id;
+  check("account created with a six-digit ID", /^\d{6}$/.test(userIdA), userIdA);
 
-const badProviderDoc = new Y.Doc();
-let rejected = false;
-const badProvider = new HocuspocusProvider({
-  url: WS_URL,
-  name: room,
-  token: "not-a-real-token",
-  document: badProviderDoc,
-  WebSocketPolyfill: WebSocket,
-});
-await new Promise((resolve) => {
-  const timer = setTimeout(resolve, 3000);
-  const done = () => {
-    clearTimeout(timer);
-    rejected = true;
-    resolve();
-  };
-  badProvider.on("authenticationFailed", done);
-  badProvider.on("disconnect", done);
-});
-check("websocket rejects bad token", rejected || badProviderDoc.getArray("blocks").length === 0);
+  const me = await call(jarA, "/me");
+  check("session cookie authenticates /me", me.status === 200 && me.data.user.userId === userIdA);
 
-const searchResponse = await fetch(`${BASE}/api/search?q=Conveyor`, {
-  headers: { cookie: adminLogin.cookies },
-});
-const searchBody =
-  searchResponse.status === 200 ? await searchResponse.json().catch(() => ({ hits: [] })) : { hits: [] };
-check(
-  "inline search finds the projected Thing",
-  searchResponse.status === 200 &&
-    (searchBody.hits ?? []).some((hit) => String(hit.content ?? "").includes("Conveyor")),
-  `status ${searchResponse.status}`,
-);
+  const created = await call(jarA, "/notes", {
+    method: "POST",
+    body: { assignedDate: date, workspaceId },
+  });
+  assert(created.status === 201, `create note returned ${created.status}`);
+  const noteId = created.data.id;
 
-const oldDayRoute = await fetch(`${BASE}/app/${today}`, {
-  headers: { cookie: adminLogin.cookies },
-  redirect: "manual",
-});
-check(
-  "old day route lands on the one view",
-  oldDayRoute.status === 307 || oldDayRoute.status === 308,
-  `status ${oldDayRoute.status}`,
-);
+  let bootstrap = await call(
+    jarA,
+    `/bootstrap?date=${date}&from=${date}&to=${date}&workspace=${workspaceId}`,
+  );
+  check(
+    "new note appears in its day",
+    bootstrap.status === 200 && bootstrap.data.day.notes.some((note) => note.id === noteId),
+  );
 
-providerB.destroy();
-providerA.destroy();
-badProvider.destroy();
-await client.end();
+  const pinnedDay = await call(jarA, `/notes/${noteId}`, {
+    method: "PATCH",
+    body: { pinMode: "day" },
+  });
+  check(
+    "day pin takes the first rank",
+    pinnedDay.status === 200 &&
+      pinnedDay.data.pinMode === "day" &&
+      pinnedDay.data.sortOrder < 0,
+    String(pinnedDay.data.sortOrder),
+  );
 
-const failed = results.filter((entry) => !entry.ok);
-console.log(`\n${results.length - failed.length}/${results.length} checks passed`);
-process.exit(failed.length === 0 ? 0 : 1);
+  bootstrap = await call(
+    jarA,
+    `/bootstrap?date=${date}&from=${date}&to=${date}&workspace=${workspaceId}`,
+  );
+  check(
+    "day-pinned note sorts first",
+    bootstrap.data.day.notes[0]?.id === noteId && bootstrap.data.day.notes[0]?.pinMode === "day",
+  );
+
+  const held = await call(jarA, `/notes/${noteId}`, {
+    method: "PATCH",
+    body: { pinMode: "global" },
+  });
+  check("global pin accepted", held.status === 200 && held.data.pinMode === "global");
+
+  bootstrap = await call(
+    jarA,
+    `/bootstrap?date=${date}&from=${date}&to=${date}&workspace=${workspaceId}`,
+  );
+  check(
+    "held note leaves the day and enters the tray",
+    bootstrap.data.pinned.some((note) => note.id === noteId) &&
+      !bootstrap.data.day.notes.some((note) => note.id === noteId),
+  );
+
+  const unpinned = await call(jarA, `/notes/${noteId}`, {
+    method: "PATCH",
+    body: { pinMode: "none" },
+  });
+  check("note can be released", unpinned.status === 200 && unpinned.data.pinMode === "none");
+
+  const token = await call(jarA, `/collab/token?noteId=${noteId}`);
+  check(
+    "solo note gets the private channel",
+    token.status === 200 && token.data.room === `private-${noteId}`,
+    token.data.room,
+  );
+
+  const docA = new Y.Doc();
+  let providerA = await connect(token.data.room, token.data.token, docA);
+  writeLine(docA, "Smoke note");
+  await sleep(3000);
+
+  bootstrap = await call(
+    jarA,
+    `/bootstrap?date=${date}&from=${date}&to=${date}&workspace=${workspaceId}`,
+  );
+  check(
+    "Yjs content is stored and projected into the list",
+    bootstrap.data.day.notes.some((note) => note.id === noteId && note.title === "Smoke note"),
+    JSON.stringify(bootstrap.data.day.notes[0] ?? null),
+  );
+
+  const registeredB = await call(new Jar(), "/auth/register", {
+    method: "POST",
+    body: { pin: "913847" },
+  });
+  assert(registeredB.status === 201, "second account failed");
+  const userIdB = registeredB.data.user.userId;
+  const jarB = new Jar();
+  const loginB = await call(jarB, "/auth/login", {
+    method: "POST",
+    body: { userId: userIdB, pin: "913847" },
+  });
+  assert(loginB.status === 200, "second account login failed");
+
+  const invite = await call(jarA, `/workspaces/${workspaceId}/members`, {
+    method: "POST",
+    body: { userId: userIdB, role: "editor" },
+  });
+  check("workspace invite succeeds", invite.status === 200 && invite.data.userId === userIdB);
+
+  const tokenA2 = await call(jarA, `/collab/token?noteId=${noteId}`);
+  const tokenB = await call(jarB, `/collab/token?noteId=${noteId}`);
+  check(
+    "shared workspace switches to the shared channel",
+    tokenA2.data.room === `shared-${workspaceId}-${noteId}` &&
+      tokenB.data.room === tokenA2.data.room,
+    tokenA2.data.room,
+  );
+
+  providerA.destroy();
+  docA.destroy();
+
+  const docA2 = new Y.Doc();
+  const docB = new Y.Doc();
+  providerA = await connect(tokenA2.data.room, tokenA2.data.token, docA2);
+  const providerB = await connect(tokenB.data.room, tokenB.data.token, docB);
+  await sleep(500);
+
+  check(
+    "a second member receives the stored document",
+    docB.getXmlFragment("default").toString().includes("Smoke note"),
+    docB.getXmlFragment("default").toString(),
+  );
+
+  writeLine(docB, "B was here");
+  await sleep(800);
+  check(
+    "edits flow between open sockets",
+    docA2.getXmlFragment("default").toString().includes("B was here"),
+  );
+
+  const presenceToken = await call(jarA, `/collab/token?workspaceId=${workspaceId}`);
+  check(
+    "presence uses its own workspace channel",
+    presenceToken.data.room === `presence-${workspaceId}`,
+  );
+
+  const presenceDocA = new Y.Doc();
+  const presenceDocB = new Y.Doc();
+  const presenceA = await connect(presenceToken.data.room, presenceToken.data.token, presenceDocA);
+  const presenceB = await connect(presenceToken.data.room, presenceToken.data.token, presenceDocB);
+  presenceA.awareness.setLocalStateField("footprint", { date, noteId });
+  await sleep(600);
+  const states = [...presenceB.awareness.getStates().values()];
+  check(
+    "footprint presence travels over awareness",
+    states.some((state) => state.footprint?.date === date),
+  );
+
+  const outsiderJar = new Jar();
+  const outsider = await call(outsiderJar, "/auth/register", {
+    method: "POST",
+    body: { pin: "556677" },
+  });
+  assert(outsider.status === 201, "third account failed");
+  const outsiderToken = await call(outsiderJar, `/collab/token?noteId=${noteId}`);
+  check("outsiders cannot mint a token for a note", outsiderToken.status === 404);
+  const outsiderPresence = await call(
+    outsiderJar,
+    `/collab/token?workspaceId=${workspaceId}`,
+  );
+  check("outsiders cannot join workspace presence", outsiderPresence.status === 404);
+  const outsiderDelete = await call(outsiderJar, `/notes/${noteId}`, { method: "DELETE" });
+  check("outsiders cannot delete a note", outsiderDelete.status === 404);
+
+  const refreshed = await call(jarB, "/auth/refresh", { method: "POST" });
+  check("refresh rotates the access token", refreshed.status === 204);
+
+  const wrongUnlock = await call(jarB, "/auth/unlock", {
+    method: "POST",
+    body: { pin: "000000" },
+  });
+  check("wrong PIN is refused", wrongUnlock.status === 401);
+
+  const unlock = await call(jarB, "/auth/unlock", {
+    method: "POST",
+    body: { pin: "913847" },
+  });
+  check("PIN unlock resumes the session", unlock.status === 200 && unlock.data.session.endsAt > Date.now());
+
+  const afterUnlock = await call(jarB, "/me");
+  check("unlocked session still reads", afterUnlock.status === 200);
+
+  const loggedOut = await call(jarB, "/auth/logout", { method: "POST" });
+  const afterLogout = await call(jarB, "/me");
+  check("logout clears the session", loggedOut.status === 204 && afterLogout.status === 401);
+
+  providerA.destroy();
+  providerB.destroy();
+  presenceA.destroy();
+  presenceB.destroy();
+  presenceDocA.destroy();
+  presenceDocB.destroy();
+  docA2.destroy();
+  docB.destroy();
+} catch (error) {
+  failed += 1;
+  console.error(`✗ smoke run aborted — ${error.message}`);
+}
+
+console.log(`\n${passed} passed, ${failed} failed`);
+process.exit(failed === 0 ? 0 : 1);

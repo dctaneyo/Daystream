@@ -1,8 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Daystream">
-  <rect width="512" height="512" rx="112" fill="#0b0c10"/>
-  <g fill="#7c8cff">
-    <rect x="144" y="184" width="224" height="32" rx="16"/>
-    <rect x="144" y="240" width="160" height="32" rx="16" opacity="0.82"/>
-    <rect x="144" y="296" width="112" height="32" rx="16" opacity="0.62"/>
-  </g>
+  <rect width="512" height="512" fill="#F9F8F6"/>
+  <rect x="176" y="88" width="4" height="336" fill="#1A1A18"/>
+  <rect x="242" y="152" width="150" height="4" fill="#C9C6C0"/>
+  <rect x="242" y="252" width="110" height="4" fill="#C9C6C0"/>
+  <rect x="242" y="352" width="132" height="4" fill="#C9C6C0"/>
+  <circle cx="178" cy="254" r="20" fill="#4A5D4E"/>
 </svg>

@@ -1,12 +1,8 @@
-/* Daystream service worker: app shell + offline fallback. */
+/* Daystream service worker: keeps the shell available offline, never caches API
+   responses, and always checks the network for navigations so a deploy cannot
+   leave a stale app running under an open tab. */
 const VERSION = "daystream-v1";
-const SHELL = [
-  "/",
-  "/offline",
-  "/manifest.webmanifest",
-  "/icons/icon-192.png",
-  "/icons/icon-512.png",
-];
+const SHELL = ["/", "/manifest.webmanifest", "/icons/icon.svg"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -30,10 +26,8 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   const request = event.request;
   if (request.method !== "GET") return;
-
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
-  // Never cache the realtime endpoint or auth routes.
   if (url.pathname.startsWith("/api/") || url.pathname === "/collab") return;
 
   if (request.mode === "navigate") {
@@ -41,28 +35,26 @@ self.addEventListener("fetch", (event) => {
       fetch(request)
         .then((response) => {
           const copy = response.clone();
-          caches.open(VERSION).then((cache) => cache.put(request, copy)).catch(() => {});
+          caches.open(VERSION).then((cache) => cache.put("/", copy));
           return response;
         })
-        .catch(async () => {
-          const cached = await caches.match(request);
-          return cached || (await caches.match("/offline")) || Response.error();
-        }),
+        .catch(() => caches.match("/")),
     );
     return;
   }
 
-  if (url.pathname.startsWith("/_next/static") || url.pathname.startsWith("/icons/")) {
+  if (url.pathname.startsWith("/assets/") || url.pathname.startsWith("/icons/")) {
     event.respondWith(
-      caches.match(request).then(
-        (cached) =>
-          cached ||
-          fetch(request).then((response) => {
+      caches.match(request).then((hit) => {
+        if (hit) return hit;
+        return fetch(request).then((response) => {
+          if (response.ok) {
             const copy = response.clone();
-            caches.open(VERSION).then((cache) => cache.put(request, copy)).catch(() => {});
-            return response;
-          }),
-      ),
+            caches.open(VERSION).then((cache) => cache.put(request, copy));
+          }
+          return response;
+        });
+      }),
     );
   }
 });
