@@ -254,7 +254,7 @@ try {
     `/bootstrap?date=${date}&from=${date}&to=${date}&workspace=${workspaceId}`,
   );
   check(
-    "held note leaves the day and enters the tray",
+    "global pin leaves the day and enters the tray",
     bootstrap.data.pinned.some((note) => note.id === noteId) &&
       !bootstrap.data.day.notes.some((note) => note.id === noteId),
   );

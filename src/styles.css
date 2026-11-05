@@ -591,10 +591,18 @@ body.ds-editor-open {
 }
 
 .ds-note-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   font-size: 10px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--accent);
+}
+
+.ds-note-mark .ds-icon {
+  width: 14px;
+  height: 14px;
 }
 
 .ds-note-title {
@@ -1279,6 +1287,9 @@ body.ds-editor-open {
 }
 
 .ds-pin-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   margin-right: 4px;
   font-size: 9px;
   letter-spacing: 0.16em;
@@ -1675,7 +1686,7 @@ body.ds-editor-open {
       "left day right";
   }
 
-  /* Editing keeps the calendar and the held/shared columns in place. The
+  /* Editing keeps the calendar and the global-pin/shared columns in place. The
      editor occupies only the centre day column, below the rail, so there is
      no modal backdrop on a wide screen. */
   .ds-editor-backdrop {

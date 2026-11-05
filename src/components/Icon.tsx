@@ -13,6 +13,7 @@ export type IconName =
   | "lock"
   | "outdent"
   | "pencil"
+  | "pin"
   | "plus"
   | "share"
   | "shield"
@@ -69,6 +70,11 @@ const PATHS: Record<IconName, ReactNode> = {
     <>
       <path d="m3 13 1-3.5 7.5-7.5 2.5 2.5L6.5 12 3 13Z" />
       <path d="m10.25 3.25 2.5 2.5" />
+    </>
+  ),
+  pin: (
+    <>
+      <path d="M6.25 2.25h3.5M8 2.25v3.25M4.75 5.5h6.5l-.75 3.25H5.5L4.75 5.5ZM8 8.75v5" />
     </>
   ),
   plus: <path d="M8 3.25v9.5M3.25 8h9.5" />,

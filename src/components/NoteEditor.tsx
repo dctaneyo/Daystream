@@ -26,8 +26,8 @@ import { NoteShareSheet } from "./Sheets";
 
 const PIN_OPTIONS: { mode: PinMode; label: string }[] = [
   { mode: "none", label: "Free" },
-  { mode: "day", label: "First today" },
-  { mode: "global", label: "Held" },
+  { mode: "day", label: "Pinned" },
+  { mode: "global", label: "Global pin" },
 ];
 
 type IndentNode = "taskItem" | "listItem";
@@ -269,7 +269,10 @@ export function NoteEditor({
       {canManage ? (
         <>
           <div className="ds-pin-row" role="group" aria-label="Pinning">
-            <span className="ds-pin-label">Pin</span>
+            <span className="ds-pin-label">
+              <Icon name="pin" />
+              Pin
+            </span>
             {PIN_OPTIONS.map((option) => (
               <button
                 key={option.mode}
@@ -284,7 +287,7 @@ export function NoteEditor({
             ))}
           </div>
           <p className="ds-pin-hint">
-            Held notes sit above every date. First today tops this date only.
+            Global pins stay above every date. Pinned keeps this note at the top of its day.
           </p>
         </>
       ) : null}

@@ -238,6 +238,9 @@ export function DayShell() {
       <header className="ds-header">
         <span className="ds-wordmark">DAYSTREAM</span>
         <div className="ds-header-right">
+          <span className={`ds-conn ${online ? "is-live" : ""}`}>
+            {online ? "Live" : "Local"}
+          </span>
           <button
             type="button"
             className="ds-workspace-btn"
@@ -250,9 +253,6 @@ export function DayShell() {
             </span>
             <Icon name="chevron-down" />
           </button>
-          <span className={`ds-conn ${online ? "is-live" : ""}`}>
-            {online ? "Live" : "Local"}
-          </span>
           <button
             type="button"
             className="ds-text-btn"
@@ -287,9 +287,9 @@ export function DayShell() {
       ) : null}
 
       {pinned.length > 0 ? (
-        <section className="ds-tray" aria-label="Held notes">
+        <section className="ds-tray" aria-label="Global pins">
           <div className="ds-tray-head">
-            <span className="ds-eyebrow">Held</span>
+            <span className="ds-eyebrow">Global pins</span>
             <span className="ds-tray-count">{pinned.length}</span>
           </div>
           <div className="ds-tray-scroll">
@@ -388,7 +388,10 @@ export function DayShell() {
               >
                 {note.pinMode === "day" ? (
                   <span className="ds-note-meta">
-                    <span className="ds-note-mark">First today</span>
+                    <span className="ds-note-mark">
+                      <Icon name="pin" />
+                      Pinned
+                    </span>
                   </span>
                 ) : null}
                 <span className="ds-note-title">{note.title || "Untitled"}</span>
@@ -442,10 +445,10 @@ export function DayShell() {
         ) : null}
       </main>
 
-      <aside className="ds-desktop-aside ds-desktop-aside--right" aria-label="Held and shared notes">
+      <aside className="ds-desktop-aside ds-desktop-aside--right" aria-label="Global pins and shared notes">
         <section className="ds-side-section">
           <div className="ds-side-head">
-            <span className="ds-eyebrow">Held</span>
+            <span className="ds-eyebrow">Global pins</span>
             <span className="ds-side-count">{pinned.length}</span>
           </div>
           {pinned.length > 0 ? (
@@ -465,7 +468,7 @@ export function DayShell() {
               ))}
             </div>
           ) : (
-            <p className="ds-side-empty">Nothing held.</p>
+            <p className="ds-side-empty">Nothing pinned globally.</p>
           )}
         </section>
 

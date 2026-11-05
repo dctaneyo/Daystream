@@ -50,7 +50,7 @@ service or in the browser.
 
 The Yjs document is the source of truth for a note's text; `notes.content`
 stores its binary state. Two projection columns (`title`, `excerpt`) are
-rewritten on every store so the day and the held tray are one indexed SQL query
+rewritten on every store so the day and the global-pin tray are one indexed SQL query
 instead of a decode of every note. Both are additive to the blueprint schema;
 all specified columns and indexes are present.
 
@@ -172,7 +172,7 @@ the template.
 | Mode | Effect |
 | --- | --- |
 | `none` | ordinary note in its day, ordered by `sort_order` |
-| `global` | leaves the day; lives in the held tray above the rail on every date |
+| `global` | leaves the day; lives in the Global pins tray above the rail on every date |
 | `day` | stays on its date and takes rank zero (`sort_order` below every ordinary note) |
 
 Unpinning a day-pinned note sends it to the end of its day's stack. Moving a
@@ -281,11 +281,12 @@ SMOKE_URL=http://127.0.0.1:3100 node scripts/smoke.mjs
 ## Desktop
 
 At 1100px and wider the day is the centre of a three-column workspace: the
-month calendar and people sit on the left, and held/shared notes sit on the
-right. The rail and day use the centre column; the side columns collapse away
-below that width. Opening a note on desktop keeps all three columns in place:
-the editor fills only the centre column below the rail, with the month/people
-column and the held/shared column still visible and usable. On narrower screens
+month calendar and people sit on the left, and global pins/shared notes sit on
+the right. The rail and day use the centre column; the side columns collapse
+away below that width. Opening a note on desktop keeps all three columns in
+place: the editor fills only the centre column below the rail, with the
+month/people column and the global pins/shared column still visible and usable.
+On narrower screens
 the editor remains a full-screen surface. The phone layout remains the primary
 one.
 

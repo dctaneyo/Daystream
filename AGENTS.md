@@ -55,7 +55,7 @@
 - `DESIGN.md` is the design system. Read it before changing UI and cite the rule the change serves.
 - **Mobile is the design target**: build and check at 390×844 first; anything only complete at
   desktop width is unfinished.
-- The app is one view: a day, its notes, and the held tray. No note page, no feed, no search page.
+- The app is one view: a day, its notes, and the Global pins tray. No note page, no feed, no search page.
   Notes open as a full-screen editor on phones and fill only the centre column on desktop; settings,
   calendar, workspace, sharing and templates are sheets over the day. The rail scrolls horizontally
   only; the Calendar sheet reaches dates outside its window.

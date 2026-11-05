@@ -14,7 +14,7 @@ they conflict.
 
 - **Workspace** → **Day** → **Note** → lines.
 - A note belongs to exactly one day. `assigned_date` is that day; it is not a tag.
-- A note can be **held** (`pin_mode = 'global'`) or **first today**
+- A note can be **globally pinned** (`pin_mode = 'global'`) or **pinned**
   (`pin_mode = 'day'`), or ordinary (`none`).
 - Notes are written, not composed. There is no title field: the first non-empty
   line becomes the title in the day stack, the rest becomes the excerpt.
@@ -113,12 +113,13 @@ desktop). Day title gets 28px above and 20px below on mobile.
   behind it.
 - **UX-08** The seven-day session wall is absolute. Never extend it, never
   silently re-authenticate; send the person back to the full ID + PIN screen.
-- **UX-09** A held note is visible on every date. It leaves its day's stack.
-- **UX-10** A first-today note keeps its date and sorts above ordinary notes.
+- **UX-09** A globally pinned note is visible on every date. It leaves its
+  day's stack and lives under **Global pins**.
+- **UX-10** A pinned note keeps its date and sorts above ordinary notes.
   Unpinning sends it to the end of the stack.
 - **UX-11** Deleting is two taps in place ("Delete note" → "Tap again to
   delete"). No browser confirm dialogs.
-- **UX-12** Pin control has exactly three options: Free, First today, Held.
+- **UX-12** Pin control has exactly three options: Free, Pinned, Global pin.
   Their meaning is stated once under the control; no other pin semantics.
 - **UX-13** Marks: activity is a muted dot, presence is ink-coloured. Never mix
   meaning into one dot.
@@ -148,9 +149,10 @@ desktop). Day title gets 28px above and 20px below on mobile.
   sheet opened from the header — not inside Account. Account holds appearance,
   identity, locking and sign-out only.
 - **UX-24** A note row carries no redundant "Note"/"Blank" label. The only
-  optional row marker is the accent rule and "First today" for a day pin.
+  optional row marker is the accent rule and a pin glyph with "Pinned" for a
+  day pin.
 - **UX-25** At 1100px and wider the app uses the width: month calendar and
-  people on the left, the day in the centre, held/shared notes on the right.
+  people on the left, the day in the centre, global pins/shared notes on the right.
   Opening a note replaces only the centre column's day view, below the rail;
   both side columns remain visible and usable, and no backdrop covers them. The
   mobile single column is still the primary design, not a fallback.
