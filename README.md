@@ -135,6 +135,14 @@ presence, the tray, pinning, moving or deletion. The note's owner or a workspace
 editor manages the share from the note's Share sheet. Shares are editor-only in
 the UI today; the `viewer` role is supported by the schema but not offered.
 
+A **public link** is different again: a random, revocable token in
+`note_public_links` that opens `/p/<token>` for anyone. The public page is
+outside the session boundary, renders the stored Yjs document read-only, and
+never grants editing, workspace presence, a share entry, or access to any other
+note. The endpoint returns only the note body and its date/workspace metadata.
+The Share sheet can copy the link or turn it off; revoking deletes the token
+immediately. Links survive note shares, and disappear when the note is deleted.
+
 ---
 
 ## Writing
@@ -252,15 +260,16 @@ npm run build          # vite build (+ generated icons)
 node scripts/smoke.mjs # needs a running server; see below
 ```
 
-`scripts/smoke.mjs` (58 checks) exercises: real-name account creation,
+`scripts/smoke.mjs` (63 checks) exercises: real-name account creation,
 duplicate/invalid name rejection, self-service display-name changes, session
 cookies, note creation, day-pin order, global pin tray, name-based workspace
 invites, both admin tiers,
 promotion/demotion, cascading ID changes, channel selection (`private-` →
 `shared-` after an invite or note share), direct note sharing with an outsider,
 the sharee's shared tray and channel, denied pinning/deletion for a sharee,
-share revocation, Yjs persistence through the title projection, live document
-sync between two sockets, footprint awareness, outsider denial, token refresh,
+share revocation, public-link creation, anonymous read-only access, unknown and
+revoked public tokens, Yjs persistence through the title projection, live
+document sync between two sockets, footprint awareness, outsider denial, token refresh,
 PIN unlock and logout. Admin checks promote a freshly created test account
 through `DATABASE_URL`; the suite needs that variable.
 
@@ -274,7 +283,11 @@ SMOKE_URL=http://127.0.0.1:3100 node scripts/smoke.mjs
 At 1100px and wider the day is the centre of a three-column workspace: the
 month calendar and people sit on the left, and held/shared notes sit on the
 right. The rail and day use the centre column; the side columns collapse away
-below that width. The phone layout remains the primary one.
+below that width. Opening a note on desktop keeps all three columns in place:
+the editor fills only the centre column below the rail, with the month/people
+column and the held/shared column still visible and usable. On narrower screens
+the editor remains a full-screen surface. The phone layout remains the primary
+one.
 
 ## Layout
 
@@ -290,6 +303,7 @@ server/templates.mjs template → Yjs seeding, title/excerpt extraction
 src/                React SPA: session, day, rail, calendar, editor, sheets
 src/admin/          standalone admin console (own route, lazy chunk, CSS)
 db/migrations/003_note_shares.sql  per-note access, additive to membership
+db/migrations/004_public_note_links.sql  revocable anonymous read-only links
 scripts/            PGlite dev database, smoke test, icon generator
 public/             manifest, service worker, generated icons
 ```

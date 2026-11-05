@@ -505,6 +505,44 @@ try {
     unshared.status === 204 && revokedToken.status === 404,
   );
 
+  const publicBefore = await call(jarA, `/notes/${noteId}/public`);
+  check(
+    "a note starts without a public link",
+    publicBefore.status === 200 && publicBefore.data.enabled === false,
+  );
+  const publicCreated = await call(jarA, `/notes/${noteId}/public`, {
+    method: "POST",
+  });
+  check(
+    "a note manager can create a public link",
+    publicCreated.status === 201 &&
+      publicCreated.data.enabled === true &&
+      /^[A-Za-z0-9_-]{32,64}$/.test(publicCreated.data.token),
+    JSON.stringify(publicCreated.data),
+  );
+
+  const publicToken = publicCreated.data.token;
+  const publicRead = await call(null, `/public/notes/${publicToken}`);
+  check(
+    "a public note can be read without a session",
+    publicRead.status === 200 &&
+      publicRead.data.note.title === "Smoke note" &&
+      typeof publicRead.data.content === "string" &&
+      publicRead.data.content.length > 0,
+    JSON.stringify(publicRead.data),
+  );
+  const unknownPublic = await call(null, "/public/notes/not-a-real-token");
+  check("an unknown public token stays closed", unknownPublic.status === 404);
+
+  const publicOff = await call(jarA, `/notes/${noteId}/public`, {
+    method: "DELETE",
+  });
+  const publicAfterOff = await call(null, `/public/notes/${publicToken}`);
+  check(
+    "turning off a public link revokes it immediately",
+    publicOff.status === 204 && publicAfterOff.status === 404,
+  );
+
   const refreshed = await call(jarB, "/auth/refresh", { method: "POST" });
   check("refresh rotates the access token", refreshed.status === 204);
 

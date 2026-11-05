@@ -7,6 +7,7 @@ export type IconName =
   | "check"
   | "chevron-down"
   | "copy"
+  | "globe"
   | "indent"
   | "layout"
   | "lock"
@@ -34,6 +35,12 @@ const PATHS: Record<IconName, ReactNode> = {
     <>
       <rect x="5.5" y="5.5" width="8" height="8" />
       <path d="M10.5 5.5v-3h-8v8h3" />
+    </>
+  ),
+  globe: (
+    <>
+      <circle cx="8" cy="8" r="5.75" />
+      <path d="M2.25 8h11.5M8 2.25c1.6 1.6 2.5 3.45 2.5 5.75s-.9 4.15-2.5 5.75C6.4 12.15 5.5 10.3 5.5 8s.9-4.15 2.5-5.75Z" />
     </>
   ),
   indent: (

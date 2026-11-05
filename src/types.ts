@@ -44,6 +44,24 @@ export interface NoteShares {
   canManage: boolean;
 }
 
+export interface NotePublicLink {
+  enabled: boolean;
+  token?: string;
+  createdAt?: string;
+}
+
+export interface PublicNote {
+  note: {
+    title: string;
+    excerpt: string;
+    assignedDate: string;
+    updatedAt: string;
+    workspaceName: string;
+  };
+  /** Base64-encoded Yjs update for the read-only document. */
+  content: string;
+}
+
 export type TemplateBlockType = "p" | "h1" | "h2" | "bullet" | "check" | "quote";
 
 export interface TemplateBlock {

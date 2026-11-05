@@ -93,8 +93,9 @@ desktop). Day title gets 28px above and 20px below on mobile.
 
 ## 4. Behaviour rules
 
-- **UX-01** The app is one view: a day. Notes open as an overlay editor. No note
-  route, no separate search or feed.
+- **UX-01** The app is one view: a day. Notes open as an editor: full-screen on
+  phones, and confined to the centre column on desktop so the workspace stays
+  visible. No note route, no separate search or feed.
 - **UX-02** New notes are created with one tap and open immediately, cursor at
   the end of an empty page.
 - **UX-03** Typing is never blocked by saving. Text lands in the CRDT document
@@ -150,16 +151,25 @@ desktop). Day title gets 28px above and 20px below on mobile.
   optional row marker is the accent rule and "First today" for a day pin.
 - **UX-25** At 1100px and wider the app uses the width: month calendar and
   people on the left, the day in the centre, held/shared notes on the right.
-  The mobile single column is still the primary design, not a fallback.
+  Opening a note replaces only the centre column's day view, below the rail;
+  both side columns remain visible and usable, and no backdrop covers them. The
+  mobile single column is still the primary design, not a fallback.
 - **UX-26** A member may change their own display name; the six-digit ID never
   changes. Display names stay unique case-insensitively.
-- **UX-27** The area around the iOS keyboard is paper, never the day view. The
-  editor's opaque full-viewport backdrop covers any layout-viewport gap; use
-  the native keyboard and do not blur the page as a substitute.
+- **UX-27** The area around the iOS keyboard is paper, never the day view. On
+  phones, the editor's opaque full-viewport backdrop covers any
+  layout-viewport gap; use the native keyboard and do not blur the page as a
+  substitute. On desktop the backdrop is absent because the editor is already
+  bounded by the two side columns.
 - **UX-28** Icons are navigation and action aids, not decoration. Use the one
   bespoke 1.25px stroke family at 14–16px; keep the word beside the icon except
   for conventional controls such as month arrows and close, which keep an
   accessible name.
+- **UX-29** A public link is a read-only capability, not a collaboration role.
+  It opens one note at `/p/<token>` without an account and cannot edit, pin,
+  move, delete, invite, or see the workspace. The page says "Read only" and the
+  link can be revoked from the Share sheet at any time; a revoked or unknown
+  token gets a plain unavailable state, never a sign-in prompt.
 
 ## 5. Writing contract
 

@@ -37,6 +37,7 @@ import {
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const PIN_RE = /^\d{6}$/;
+const PUBLIC_TOKEN_RE = /^[A-Za-z0-9_-]{32,64}$/;
 
 const NOTE_COLUMNS = `id,
   user_id AS "userId",
@@ -839,6 +840,149 @@ api.delete("/notes/:id/shares/:userId", requireAuth, sameOrigin, async (req, res
     [req.params.id, req.params.userId],
   );
   res.status(204).end();
+});
+
+/* --------------------------- public note links --------------------------- */
+
+/**
+ * A public link is a read-only capability. It never adds the holder to the
+ * workspace, a note share, or a collaboration room; it only authorises the
+ * single public GET below. The owner/manager controls it from the Share sheet.
+ */
+api.get("/notes/:id/public", requireAuth, async (req, res) => {
+  if (!isUuid(req.params.id)) {
+    res.status(404).json({ error: "not_found" });
+    return;
+  }
+  const access = await noteAccess(req.params.id, req.auth.userId);
+  if (!access) {
+    res.status(404).json({ error: "not_found" });
+    return;
+  }
+  if (!access.canManage) {
+    res.status(403).json({ error: "forbidden" });
+    return;
+  }
+
+  const { rows } = await query(
+    "SELECT token, created_at AS \"createdAt\" FROM note_public_links WHERE note_id = $1",
+    [req.params.id],
+  );
+  if (!rows[0]) {
+    res.json({ enabled: false });
+    return;
+  }
+  res.json({ enabled: true, token: rows[0].token, createdAt: rows[0].createdAt });
+});
+
+api.post("/notes/:id/public", requireAuth, sameOrigin, async (req, res) => {
+  if (!isUuid(req.params.id)) {
+    res.status(404).json({ error: "not_found" });
+    return;
+  }
+  const access = await noteAccess(req.params.id, req.auth.userId);
+  if (!access) {
+    res.status(404).json({ error: "not_found" });
+    return;
+  }
+  if (!access.canManage) {
+    res.status(403).json({ error: "forbidden" });
+    return;
+  }
+
+  const existing = await query(
+    "SELECT token, created_at AS \"createdAt\" FROM note_public_links WHERE note_id = $1",
+    [req.params.id],
+  );
+  if (existing.rows[0]) {
+    res.json({ enabled: true, ...existing.rows[0] });
+    return;
+  }
+
+  // 32 random bytes make the token unguessable, while base64url keeps it safe
+  // in a path segment and in copied chat messages.
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const token = randomBytes(32).toString("base64url");
+    try {
+      const { rows } = await query(
+        `INSERT INTO note_public_links (note_id, token, created_by)
+         VALUES ($1, $2, $3)
+         RETURNING token, created_at AS "createdAt"`,
+        [req.params.id, token, req.auth.userId],
+      );
+      res.status(201).json({ enabled: true, ...rows[0] });
+      return;
+    } catch (error) {
+      if (error?.code === "23505") {
+        // Another request may have enabled the same note in the tiny window
+        // since the read above. Return that link rather than rotating it.
+        const raced = await query(
+          "SELECT token, created_at AS \"createdAt\" FROM note_public_links WHERE note_id = $1",
+          [req.params.id],
+        );
+        if (raced.rows[0]) {
+          res.json({ enabled: true, ...raced.rows[0] });
+          return;
+        }
+      }
+      throw error;
+    }
+  }
+  res.status(503).json({ error: "token_unavailable" });
+});
+
+api.delete("/notes/:id/public", requireAuth, sameOrigin, async (req, res) => {
+  if (!isUuid(req.params.id)) {
+    res.status(404).json({ error: "not_found" });
+    return;
+  }
+  const access = await noteAccess(req.params.id, req.auth.userId);
+  if (!access) {
+    res.status(404).json({ error: "not_found" });
+    return;
+  }
+  if (!access.canManage) {
+    res.status(403).json({ error: "forbidden" });
+    return;
+  }
+  await query("DELETE FROM note_public_links WHERE note_id = $1", [req.params.id]);
+  res.status(204).end();
+});
+
+// Deliberately unauthenticated. This is the only content route outside the
+// session boundary, and it returns no owner, workspace, share, or edit data.
+api.get("/public/notes/:token", async (req, res) => {
+  const token = String(req.params.token ?? "");
+  if (!PUBLIC_TOKEN_RE.test(token)) {
+    res.status(404).json({ error: "not_found" });
+    return;
+  }
+  const { rows } = await query(
+    `SELECT n.title, n.excerpt, n.assigned_date AS "assignedDate",
+            n.updated_at AS "updatedAt", n.content, w.name AS "workspaceName"
+       FROM note_public_links p
+       JOIN notes n ON n.id = p.note_id
+       JOIN workspaces w ON w.id = n.workspace_id
+      WHERE p.token = $1`,
+    [token],
+  );
+  const note = rows[0];
+  if (!note) {
+    res.status(404).json({ error: "not_found" });
+    return;
+  }
+
+  res.set("X-Robots-Tag", "noindex, nofollow");
+  res.json({
+    note: {
+      title: note.title,
+      excerpt: note.excerpt,
+      assignedDate: note.assignedDate,
+      updatedAt: note.updatedAt,
+      workspaceName: note.workspaceName,
+    },
+    content: note.content ? Buffer.from(note.content).toString("base64") : "",
+  });
 });
 
 /* ------------------------------ workspaces ------------------------------ */

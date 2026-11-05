@@ -40,10 +40,14 @@
 - User-ID changes rely on `ON UPDATE CASCADE`; the target's existing sessions become invalid. Keep
   the console warning accurate if that behavior changes.
 - Migrations are append-only. `002_names_and_admins.sql` adds the name index and tiers;
-  `003_note_shares.sql` adds per-note access.
+  `003_note_shares.sql` adds per-note access; `004_public_note_links.sql` adds revocable
+  anonymous read-only links.
 - Workspace access and note access are different. `note_shares` grants one note only; a note
   sharee must never gain workspace presence, siblings, pinning, moving, deletion or invite rights.
   Keep the room switch (`private-` → `shared-`) and the sharee tray in sync if this changes.
+- A public link is a separate, narrower capability: one random token, an unauthenticated read-only
+  GET, and no collaboration room. Only note managers can create or revoke it. The public response
+  must never include user IDs, workspace IDs, share lists, pin state, or an edit path.
 - Workspace switching, members and invites belong in the Workspace sheet, not Account.
 
 ## Design rules
@@ -52,8 +56,9 @@
 - **Mobile is the design target**: build and check at 390×844 first; anything only complete at
   desktop width is unfinished.
 - The app is one view: a day, its notes, and the held tray. No note page, no feed, no search page.
-  Notes open as a full-screen editor; settings, calendar, workspace, sharing and templates are sheets
-  over the day. The rail scrolls horizontally only; the Calendar sheet reaches dates outside its window.
+  Notes open as a full-screen editor on phones and fill only the centre column on desktop; settings,
+  calendar, workspace, sharing and templates are sheets over the day. The rail scrolls horizontally
+  only; the Calendar sheet reaches dates outside its window.
 - Note rows do not repeat that they are notes. Only a day pin gets a marker.
 - The page is paper: 1px hairlines, native fonts, flat ink. No card containers, gradients, glow,
   drop shadows, emoji or badge soup (`DESIGN.md` UI-01…UI-08). Use only the bespoke 16px stroke

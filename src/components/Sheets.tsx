@@ -12,6 +12,7 @@ import { useSession } from "../lib/session";
 import { ACCENTS, THEMES, useAppearance } from "../lib/theme";
 import type {
   Member,
+  NotePublicLink,
   NoteShares,
   NoteSummary,
   Template,
@@ -454,10 +455,20 @@ export function NoteShareSheet({
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [armed, setArmed] = useState<string | null>(null);
+  const [publicInfo, setPublicInfo] = useState<NotePublicLink | null>(null);
+  const [publicBusy, setPublicBusy] = useState(false);
+  const [publicArmed, setPublicArmed] = useState(false);
+  const [publicMessage, setPublicMessage] = useState("");
+  const [publicCopied, setPublicCopied] = useState(false);
 
   const load = async () => {
     try {
-      setData(await api<NoteShares>(`/notes/${note.id}/shares`));
+      const [nextData, nextPublic] = await Promise.all([
+        api<NoteShares>(`/notes/${note.id}/shares`),
+        api<NotePublicLink>(`/notes/${note.id}/public`),
+      ]);
+      setData(nextData);
+      setPublicInfo(nextPublic);
       setFailure("");
     } catch (error) {
       setFailure(authMessage(error));
@@ -507,6 +518,59 @@ export function NoteShareSheet({
       setMessage(authMessage(error));
     } finally {
       setBusy(false);
+    }
+  };
+
+  const publicUrl = publicInfo?.token
+    ? `${window.location.origin}/p/${publicInfo.token}`
+    : "";
+
+  const copyPublic = async () => {
+    if (!publicUrl) return;
+    try {
+      await navigator.clipboard.writeText(publicUrl);
+      setPublicCopied(true);
+      window.setTimeout(() => setPublicCopied(false), 2000);
+    } catch {
+      setPublicMessage("Copy the link from the field above.");
+    }
+  };
+
+  const enablePublic = async () => {
+    setPublicBusy(true);
+    setPublicMessage("");
+    setPublicArmed(false);
+    try {
+      const next = await api<NotePublicLink>(`/notes/${note.id}/public`, {
+        method: "POST",
+      });
+      setPublicInfo(next);
+      setPublicMessage("Public link created.");
+    } catch (error) {
+      setPublicMessage(authMessage(error));
+    } finally {
+      setPublicBusy(false);
+    }
+  };
+
+  const disablePublic = async () => {
+    if (!publicArmed) {
+      setPublicArmed(true);
+      setPublicMessage("Tap again to turn off the link.");
+      return;
+    }
+    setPublicBusy(true);
+    setPublicMessage("");
+    try {
+      await api(`/notes/${note.id}/public`, { method: "DELETE" });
+      setPublicInfo({ enabled: false });
+      setPublicArmed(false);
+      setPublicCopied(false);
+      setPublicMessage("The public link no longer works.");
+    } catch (error) {
+      setPublicMessage(authMessage(error));
+    } finally {
+      setPublicBusy(false);
     }
   };
 
@@ -592,9 +656,66 @@ export function NoteShareSheet({
             ) : null}
           </section>
 
+          <section className="ds-section">
+            <h3 className="ds-eyebrow">Public link</h3>
+            {publicInfo?.enabled && publicInfo.token ? (
+              <>
+                <p className="ds-inline-note">
+                  Anyone with this link can read the note. They cannot edit it or join the
+                  workspace, and they do not need an account.
+                </p>
+                <div className="ds-public-link-row">
+                  <span className="ds-public-link-url">{publicUrl}</span>
+                  <button
+                    type="button"
+                    className="ds-text-btn"
+                    onClick={() => void copyPublic()}
+                    disabled={publicBusy}
+                  >
+                    <Icon name="copy" />
+                    {publicCopied ? "Copied" : "Copy link"}
+                  </button>
+                </div>
+                <div className="ds-action-list">
+                  <button
+                    type="button"
+                    className="ds-text-btn ds-danger ds-action-danger"
+                    onClick={() => void disablePublic()}
+                    disabled={publicBusy}
+                  >
+                    <Icon name="x" />
+                    {publicArmed ? "Tap again to turn off" : "Turn off public link"}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="ds-inline-note">
+                  Only people in this workspace and note sharees can open this note.
+                </p>
+                <button
+                  type="button"
+                  className="ds-text-btn"
+                  onClick={() => void enablePublic()}
+                  disabled={publicBusy || !publicInfo}
+                >
+                  <Icon name="globe" />
+                  {publicBusy ? "Creating…" : "Create public link"}
+                </button>
+              </>
+            )}
+
+            {publicMessage ? (
+              <p className="ds-inline-note" role="status">
+                {publicMessage}
+              </p>
+            ) : null}
+          </section>
+
           <p className="ds-settings-footnote">
             A note share opens this note only — not the workspace, its tray, or its other notes.
-            They can edit the body, but cannot move or delete it.
+            They can edit the body, but cannot move or delete it. A public link is read-only for
+            anyone, and can be turned off here at any time.
           </p>
         </>
       ) : null}
