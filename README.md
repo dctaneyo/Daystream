@@ -23,6 +23,7 @@ WebSocket at `/collab`. Postgres is the only other dependency.
 | Editor | Tiptap 3 with input rules, task lists and collaborative carets |
 | Offline | `y-indexeddb` per note + service-worker app shell |
 | Hosting | Railway single service (`railway.json`), health check `/api/health` |
+| Admin | Separate lazy-loaded `/admin` console, owner + administrator tiers |
 
 No realtime SaaS, no auth SaaS, no CDN fonts. Everything runs in the Railway
 service or in the browser.
@@ -78,10 +79,12 @@ Both are open WebSocket state. There is no polling anywhere in the product.
 
 ## Auth lifecycle
 
-- **Create:** choose a PIN twice; the server allocates a random unused 6-digit
-  ID, hashes the PIN with bcrypt, creates a `Personal` workspace and an `admin`
-  membership, and shows the ID once. The first account on an install is
-  `is_admin`.
+- **Create:** choose a real name, then a PIN twice. The server allocates a
+  random unused 6-digit ID, hashes the PIN with bcrypt, creates a `Personal`
+  workspace and an `admin` membership, and shows the ID once. The first account
+  on an install is the owner (`is_admin` + `is_super_admin`).
+- **Names:** display names are unique case-insensitively and are how a workspace
+  invite finds someone. Invites accept a name or a six-digit ID.
 - **Sign in:** ID pad → PIN pad, auto-submitting at six digits. Five wrong PINs
   lock that account for five minutes (in-memory, per service instance).
 - **Tokens:** 15-minute access JWT and a 7-day refresh JWT, both HTTP-only. The
@@ -99,6 +102,23 @@ Both are open WebSocket state. There is no polling anywhere in the product.
 
 PINs cannot be recovered. Losing both the ID and the session means the notebook
 is unreachable; that is stated on the auth screen.
+
+### Administration
+
+`/admin` is a separate, lazy-loaded page — the notebook never grows admin
+chrome. It shares the session cookie and re-checks the account on every
+management call.
+
+| Tier | Can |
+| --- | --- |
+| Owner (`is_super_admin`) | list accounts, change any member's ID, promote or demote administrators |
+| Administrator (`is_admin`) | list accounts, change a member's ID (not another administrator's) |
+| Member | use the notebook only |
+
+The owner cannot be demoted, and nobody can change their own ID. Changing an ID
+cascades to memberships, notes and templates; the target's current sessions end
+and they sign in with the new ID. Accounts that predate migration 002 keep a
+unique `Member <id>` placeholder and can still be invited by ID.
 
 ---
 
@@ -207,11 +227,14 @@ npm run build          # vite build (+ generated icons)
 node scripts/smoke.mjs # needs a running server; see below
 ```
 
-`scripts/smoke.mjs` (25 checks) exercises: account creation, session cookies,
-note creation, day-pin ordering, global pin tray, channel selection
-(`private-` → `shared-` after an invite), Yjs persistence through the title
-projection, live document sync between two sockets, footprint awareness, three
-kinds of outsider denial, token refresh, PIN unlock and logout.
+`scripts/smoke.mjs` (45 checks) exercises: real-name account creation,
+duplicate/invalid name rejection, session cookies, note creation, day-pin
+ordering, global pin tray, name-based workspace invites, both admin tiers,
+promotion/demotion, cascading ID changes, channel selection (`private-` →
+`shared-` after an invite), Yjs persistence through the title projection, live
+document sync between two sockets, footprint awareness, three kinds of outsider
+denial, token refresh, PIN unlock and logout. Admin checks promote a freshly
+created test account through `DATABASE_URL`; the suite needs that variable.
 
 ```bash
 DATABASE_URL=… AUTH_SECRET=… PORT=3100 node server/index.mjs &
@@ -224,11 +247,13 @@ SMOKE_URL=http://127.0.0.1:3100 node scripts/smoke.mjs
 db/migrations/      numbered SQL, applied at boot
 server/index.mjs    Express + Vite/static + WebSocket upgrade at /collab
 server/api.mjs      auth, bootstrap, notes, pinning, workspaces, templates, tokens
-server/auth.mjs     bcrypt, JWT cookies, session wall, PIN throttle
+server/auth.mjs     bcrypt, JWT cookies, session wall, PIN throttle, admin guards
+server/names.mjs    display-name validation and invite lookup
 server/collab.mjs   Hocuspocus auth, bytea load/store, title projection
 server/rooms.mjs    room naming and parsing
 server/templates.mjs template → Yjs seeding, title/excerpt extraction
 src/                React SPA: session, day, rail, editor, sheets
+src/admin/          standalone admin console (own route, lazy chunk, CSS)
 scripts/            PGlite dev database, smoke test, icon generator
 public/             manifest, service worker, generated icons
 ```
@@ -245,4 +270,6 @@ public/             manifest, service worker, generated icons
   notes does not.
 - A note is visible to every member of its workspace; there is no per-note ACL
   inside a workspace.
+- Administration covers listing, administrator roles and ID changes. It does not
+  disable or delete accounts, reset PINs, or edit display names.
 - There is no search, backlinks, attachments, reminders or calendar import yet.

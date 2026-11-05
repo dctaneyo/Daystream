@@ -1,15 +1,18 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
+import { ApiError } from "../lib/api";
+import { authMessage } from "../lib/errors";
 import { useSession } from "../lib/session";
 import { Digits } from "./Digits";
 import { Keypad } from "./Keypad";
 
-type Step = "id" | "pin" | "newPin" | "confirmPin" | "created";
+type Step = "id" | "pin" | "name" | "newPin" | "confirmPin" | "created";
 
 export function AuthScreen() {
   const session = useSession();
   const [step, setStep] = useState<Step>("id");
   const [value, setValue] = useState("");
   const [userId, setUserId] = useState("");
+  const [displayName, setDisplayName] = useState("");
   const [firstPin, setFirstPin] = useState("");
   const [createdId, setCreatedId] = useState("");
   const [error, setError] = useState("");
@@ -19,6 +22,17 @@ export function AuthScreen() {
     setValue("");
     setError("");
     setStep(next);
+  };
+
+  const submitName = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const name = displayName.replace(/\s+/g, " ").trim();
+    if (name.length < 2) {
+      setError("Enter your name.");
+      return;
+    }
+    setDisplayName(name);
+    go("newPin");
   };
 
   const submit = async (digits: string) => {
@@ -49,12 +63,20 @@ export function AuthScreen() {
         return;
       }
       try {
-        const created = await session.register(digits);
+        const created = await session.register(displayName, digits);
         setCreatedId(created.userId);
         setStep("created");
-      } catch {
+      } catch (caught) {
         setValue("");
         setFirstPin("");
+        if (
+          caught instanceof ApiError &&
+          (caught.code === "name_taken" || caught.code === "invalid_name")
+        ) {
+          setError(authMessage(caught));
+          setStep("name");
+          return;
+        }
         setStep("newPin");
       }
     }
@@ -70,7 +92,7 @@ export function AuthScreen() {
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (step === "created") return;
+      if (step === "created" || step === "name") return;
       if (/^[0-9]$/.test(event.key)) {
         event.preventDefault();
         push(event.key);
@@ -93,6 +115,63 @@ export function AuthScreen() {
       setCopied(false);
     }
   };
+
+  if (step === "name") {
+    return (
+      <main className="ds-auth">
+        <header className="ds-auth-head">
+          <span className="ds-wordmark">DAYSTREAM</span>
+          <span className="ds-eyebrow">A calendar you can write in</span>
+        </header>
+
+        <section className="ds-auth-panel" aria-label="Your name">
+          <h1 className="ds-auth-title">What should we call you?</h1>
+          <p className="ds-auth-caption">
+            Your real name. It is how people find you to share a notebook.
+          </p>
+
+          <form className="ds-auth-name" onSubmit={submitName}>
+            <label className="ds-label" htmlFor="display-name">
+              Name
+            </label>
+            <input
+              id="display-name"
+              className="ds-input"
+              autoFocus
+              autoComplete="name"
+              autoCapitalize="words"
+              maxLength={60}
+              placeholder="Ada Lovelace"
+              value={displayName}
+              onChange={(event) => {
+                setDisplayName(event.target.value);
+                setError("");
+              }}
+            />
+            <p className="ds-auth-error" role="status">
+              {error}
+            </p>
+            <div className="ds-auth-actions">
+              <button
+                type="submit"
+                className="ds-primary"
+                disabled={session.busy || displayName.trim().length < 2}
+              >
+                Continue
+              </button>
+              <button type="button" className="ds-text-btn" onClick={() => go("id")}>
+                Sign in
+              </button>
+            </div>
+          </form>
+
+          <p className="ds-auth-footnote">
+            Names are unique. Use the name people already know you by.
+          </p>
+        </section>
+      </main>
+    );
+  }
 
   if (step === "created") {
     return (
@@ -159,7 +238,7 @@ export function AuthScreen() {
           }}
           onSecondary={() => {
             if (step === "id") {
-              go("newPin");
+              go("name");
             } else if (step === "pin") {
               setUserId("");
               go("id");

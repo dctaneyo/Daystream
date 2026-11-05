@@ -132,6 +132,9 @@ desktop). Day title gets 28px above and 20px below on mobile.
 - **UX-19** Selection and caret are the platform's; never replace the native
   keyboard or text menu.
 - **UX-20** Respect `prefers-reduced-motion`; no motion is load-bearing.
+- **UX-21** Administration is a separate page at `/admin`, outside the day shell.
+  It uses the same paper and hairlines, but never adds admin controls to the
+  notebook itself.
 
 ## 5. Writing contract
 

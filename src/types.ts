@@ -24,6 +24,7 @@ export interface Workspace {
 
 export interface Member {
   userId: string;
+  displayName: string;
   role: string;
 }
 
@@ -41,9 +42,22 @@ export interface Template {
 }
 
 export interface Me {
-  user: { userId: string; isAdmin: boolean };
+  user: {
+    userId: string;
+    displayName: string;
+    isAdmin: boolean;
+    isSuperAdmin: boolean;
+  };
   session: { endsAt: number };
   workspaces: Workspace[];
+}
+
+export interface AdminUser {
+  userId: string;
+  displayName: string;
+  isAdmin: boolean;
+  isSuperAdmin: boolean;
+  createdAt: string;
 }
 
 export interface SessionExpiry {
@@ -52,7 +66,12 @@ export interface SessionExpiry {
 }
 
 export interface Bootstrap {
-  user: { userId: string; isAdmin: boolean };
+  user: {
+    userId: string;
+    displayName: string;
+    isAdmin: boolean;
+    isSuperAdmin: boolean;
+  };
   session: { endsAt: number };
   workspace: Workspace;
   workspaces: Workspace[];

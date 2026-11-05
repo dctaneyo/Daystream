@@ -12,7 +12,9 @@ import {
   issueTokens,
   readRefresh,
   recordFailure,
+  requireAdmin,
   requireAuth,
+  requireSuperAdmin,
   sameOrigin,
   secretKey,
   SESSION_TTL_MS,
@@ -26,6 +28,7 @@ import {
   privateRoom,
   sharedRoom,
 } from "./rooms.mjs";
+import { cleanLookup, normalizeDisplayName } from "./names.mjs";
 import {
   seedFromStructure,
   structureBlocks,
@@ -118,8 +121,13 @@ api.get("/version", (req, res) => {
 
 api.post("/auth/register", sameOrigin, async (req, res) => {
   const pin = String(req.body?.pin ?? "");
+  const displayName = normalizeDisplayName(req.body?.displayName);
   if (!PIN_RE.test(pin)) {
     res.status(400).json({ error: "pin_format" });
+    return;
+  }
+  if (!displayName) {
+    res.status(400).json({ error: "invalid_name" });
     return;
   }
 
@@ -127,18 +135,30 @@ api.post("/auth/register", sameOrigin, async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
+    // Serialize registration so exactly one account can become the owner.
+    await client.query("LOCK TABLE users IN SHARE ROW EXCLUSIVE MODE");
     const count = await client.query("SELECT count(*)::int AS n FROM users");
     const isAdmin = count.rows[0].n === 0;
+
+    const clash = await client.query(
+      "SELECT 1 FROM users WHERE lower(display_name) = lower($1)",
+      [displayName],
+    );
+    if (clash.rowCount) {
+      await client.query("ROLLBACK");
+      res.status(409).json({ error: "name_taken" });
+      return;
+    }
 
     let userId = null;
     for (let attempt = 0; attempt < 20 && !userId; attempt += 1) {
       const candidate = String(100000 + randomInt(900000));
       const inserted = await client.query(
-        `INSERT INTO users (user_id, pin_hash, is_admin)
-         VALUES ($1, $2, $3)
+        `INSERT INTO users (user_id, pin_hash, display_name, is_admin, is_super_admin)
+         VALUES ($1, $2, $3, $4, $4)
          ON CONFLICT DO NOTHING
          RETURNING user_id`,
-        [candidate, pinHash, isAdmin],
+        [candidate, pinHash, displayName, isAdmin],
       );
       if (inserted.rowCount) userId = inserted.rows[0].user_id;
     }
@@ -166,7 +186,7 @@ api.post("/auth/register", sameOrigin, async (req, res) => {
     const expiry = await issueTokens(req, res, { userId, isAdmin }, session);
 
     res.status(201).json({
-      user: { userId, isAdmin },
+      user: { userId, displayName, isAdmin, isSuperAdmin: isAdmin },
       session: expiry,
       workspace: {
         id: workspace.rows[0].id,
@@ -176,6 +196,13 @@ api.post("/auth/register", sameOrigin, async (req, res) => {
     });
   } catch (error) {
     await client.query("ROLLBACK").catch(() => {});
+    if (
+      error?.code === "23505" &&
+      String(error.constraint ?? "").includes("display_name")
+    ) {
+      res.status(409).json({ error: "name_taken" });
+      return;
+    }
     throw error;
   } finally {
     client.release();
@@ -217,7 +244,12 @@ api.post("/auth/login", sameOrigin, async (req, res) => {
     session,
   );
   res.json({
-    user: { userId: user.user_id, isAdmin: user.is_admin === true },
+    user: {
+      userId: user.user_id,
+      displayName: user.display_name,
+      isAdmin: user.is_admin === true,
+      isSuperAdmin: user.is_super_admin === true,
+    },
     session: expiry,
   });
 });
@@ -313,9 +345,19 @@ api.post("/auth/logout", sameOrigin, (req, res) => {
 });
 
 api.get("/me", requireAuth, async (req, res) => {
+  const user = await findUser(req.auth.userId);
+  if (!user) {
+    res.status(401).json({ error: "unauthenticated" });
+    return;
+  }
   const workspaces = await listWorkspaces(req.auth.userId);
   res.json({
-    user: { userId: req.auth.userId, isAdmin: req.auth.isAdmin },
+    user: {
+      userId: user.user_id,
+      displayName: user.display_name,
+      isAdmin: user.is_admin === true,
+      isSuperAdmin: user.is_super_admin === true,
+    },
     session: { endsAt: req.auth.sessionStartedAt + SESSION_TTL_MS },
     workspaces,
   });
@@ -325,6 +367,11 @@ api.get("/me", requireAuth, async (req, res) => {
 
 api.get("/bootstrap", requireAuth, async (req, res) => {
   const userId = req.auth.userId;
+  const account = await findUser(userId);
+  if (!account) {
+    res.status(401).json({ error: "unauthenticated" });
+    return;
+  }
   const date = readDate(req.query.date);
   if (!date) {
     res.status(400).json({ error: "date_required" });
@@ -377,10 +424,11 @@ api.get("/bootstrap", requireAuth, async (req, res) => {
       [workspace.id, from, to],
     ),
     query(
-      `SELECT user_id AS "userId", role
-         FROM workspace_members
-        WHERE workspace_id = $1
-        ORDER BY role ASC, user_id ASC`,
+      `SELECT wm.user_id AS "userId", u.display_name AS "displayName", wm.role
+         FROM workspace_members wm
+         JOIN users u ON u.user_id = wm.user_id
+        WHERE wm.workspace_id = $1
+        ORDER BY wm.role ASC, lower(u.display_name) ASC`,
       [workspace.id],
     ),
     query(
@@ -393,7 +441,12 @@ api.get("/bootstrap", requireAuth, async (req, res) => {
   ]);
 
   res.json({
-    user: { userId, isAdmin: req.auth.isAdmin },
+    user: {
+      userId,
+      displayName: account.display_name,
+      isAdmin: account.is_admin === true,
+      isSuperAdmin: account.is_super_admin === true,
+    },
     session: { endsAt: req.auth.sessionStartedAt + SESSION_TTL_MS },
     workspace,
     workspaces,
@@ -619,9 +672,11 @@ api.post("/workspaces/:id/members", requireAuth, sameOrigin, async (req, res) =>
     return;
   }
 
-  const target = String(req.body?.userId ?? "");
+  const identifier = String(
+    req.body?.identifier ?? req.body?.userId ?? "",
+  ).trim();
   const role = String(req.body?.role ?? "editor");
-  if (!PIN_RE.test(target)) {
+  if (!identifier) {
     res.status(400).json({ error: "invalid_user" });
     return;
   }
@@ -629,7 +684,23 @@ api.post("/workspaces/:id/members", requireAuth, sameOrigin, async (req, res) =>
     res.status(400).json({ error: "invalid_role" });
     return;
   }
-  if (!(await findUser(target))) {
+
+  // A six-digit string is an ID; anything else is a display name. Names are
+  // unique case-insensitively, so the lookup can only ever return one person.
+  let target = null;
+  if (PIN_RE.test(identifier)) {
+    target = await findUser(identifier);
+  } else {
+    const name = cleanLookup(identifier);
+    if (name) {
+      const { rows } = await query(
+        "SELECT user_id, display_name FROM users WHERE lower(display_name) = lower($1)",
+        [name],
+      );
+      target = rows[0] ?? null;
+    }
+  }
+  if (!target) {
     res.status(404).json({ error: "no_such_user" });
     return;
   }
@@ -638,9 +709,13 @@ api.post("/workspaces/:id/members", requireAuth, sameOrigin, async (req, res) =>
     `INSERT INTO workspace_members (workspace_id, user_id, role)
      VALUES ($1, $2, $3)
      ON CONFLICT (workspace_id, user_id) DO UPDATE SET role = EXCLUDED.role`,
-    [req.params.id, target, role],
+    [req.params.id, target.user_id, role],
   );
-  res.json({ userId: target, role });
+  res.json({
+    userId: target.user_id,
+    displayName: target.display_name,
+    role,
+  });
 });
 
 /* ------------------------------- templates ------------------------------ */
@@ -735,6 +810,145 @@ api.get("/collab/token", requireAuth, async (req, res) => {
 
   res.json({ token, room });
 });
+
+/* --------------------------- administration ----------------------------- */
+
+const ADMIN_USER_COLUMNS = `user_id AS "userId",
+  display_name AS "displayName",
+  is_admin AS "isAdmin",
+  is_super_admin AS "isSuperAdmin",
+  created_at AS "createdAt"`;
+
+api.get("/admin/users", requireAuth, requireAdmin, async (req, res) => {
+  const search = String(req.query.q ?? "").trim().slice(0, 60);
+  const { rows } = await query(
+    `SELECT ${ADMIN_USER_COLUMNS}
+       FROM users
+      WHERE $1 = '' OR user_id LIKE $2 OR display_name ILIKE $2
+      ORDER BY is_super_admin DESC, is_admin DESC, lower(display_name) ASC
+      LIMIT 200`,
+    [search, `%${search}%`],
+  );
+  res.json({
+    users: rows,
+    viewer: {
+      userId: req.auth.userId,
+      isSuperAdmin: req.auth.isSuperAdmin === true,
+    },
+  });
+});
+
+/**
+ * A six-digit ID is mutable. The foreign keys cascade, so memberships, notes
+ * and templates follow the person. The old token becomes unusable because its
+ * subject no longer exists; the console says so before the change is saved.
+ */
+api.patch("/admin/users/:id/id", requireAuth, requireAdmin, sameOrigin, async (req, res) => {
+  const currentId = String(req.params.id);
+  const nextId = String(req.body?.userId ?? "");
+  if (!PIN_RE.test(currentId) || !PIN_RE.test(nextId)) {
+    res.status(400).json({ error: "invalid_id" });
+    return;
+  }
+  if (currentId === nextId) {
+    res.status(400).json({ error: "same_id" });
+    return;
+  }
+  if (currentId === req.auth.userId) {
+    res.status(403).json({ error: "cannot_change_self" });
+    return;
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const found = await client.query(
+      `SELECT user_id, display_name, is_admin, is_super_admin
+         FROM users WHERE user_id = $1 FOR UPDATE`,
+      [currentId],
+    );
+    const target = found.rows[0];
+    if (!target) {
+      await client.query("ROLLBACK");
+      res.status(404).json({ error: "not_found" });
+      return;
+    }
+    // An administrator manages members; only the owner may touch another
+    // administrator's identity.
+    if (target.is_admin && !req.auth.isSuperAdmin) {
+      await client.query("ROLLBACK");
+      res.status(403).json({ error: "forbidden" });
+      return;
+    }
+
+    const clash = await client.query("SELECT 1 FROM users WHERE user_id = $1", [
+      nextId,
+    ]);
+    if (clash.rowCount) {
+      await client.query("ROLLBACK");
+      res.status(409).json({ error: "id_taken" });
+      return;
+    }
+
+    const updated = await client.query(
+      `UPDATE users SET user_id = $2 WHERE user_id = $1
+       RETURNING ${ADMIN_USER_COLUMNS}`,
+      [currentId, nextId],
+    );
+    await client.query("COMMIT");
+    res.json({ user: updated.rows[0] });
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    if (error?.code === "23505" || error?.code === "23503") {
+      res.status(409).json({ error: "id_taken" });
+      return;
+    }
+    throw error;
+  } finally {
+    client.release();
+  }
+});
+
+api.patch(
+  "/admin/users/:id/admin",
+  requireAuth,
+  requireAdmin,
+  requireSuperAdmin,
+  sameOrigin,
+  async (req, res) => {
+    const targetId = String(req.params.id);
+    const isAdmin = req.body?.isAdmin;
+    if (!PIN_RE.test(targetId)) {
+      res.status(400).json({ error: "invalid_id" });
+      return;
+    }
+    if (typeof isAdmin !== "boolean") {
+      res.status(400).json({ error: "invalid_role" });
+      return;
+    }
+    if (targetId === req.auth.userId) {
+      res.status(403).json({ error: "cannot_change_owner" });
+      return;
+    }
+
+    const target = await findUser(targetId);
+    if (!target) {
+      res.status(404).json({ error: "not_found" });
+      return;
+    }
+    if (target.is_super_admin) {
+      res.status(403).json({ error: "cannot_change_owner" });
+      return;
+    }
+
+    const { rows } = await query(
+      `UPDATE users SET is_admin = $2 WHERE user_id = $1
+       RETURNING ${ADMIN_USER_COLUMNS}`,
+      [targetId, isAdmin],
+    );
+    res.json({ user: rows[0] });
+  },
+);
 
 api.use((req, res) => {
   res.status(404).json({ error: "not_found" });

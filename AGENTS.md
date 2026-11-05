@@ -27,6 +27,19 @@
 - Postgres `date` values are returned as `YYYY-MM-DD` strings (`server/db.mjs`); never convert them
   through `Date` on the server, or a note will move a day in another timezone.
 
+## Identity and administration
+
+- Display names are the user-facing identity: real names, unique case-insensitively via
+  `users_display_name_unique`. Registration requires one; invites accept a name or a 6-digit ID.
+- `/admin` is a separate lazy-loaded surface (`src/admin/`), mounted by `main.tsx` outside the day
+  shell. Never move admin controls into the notebook.
+- Two tiers: the owner (`is_super_admin`) can promote/demote administrators; an administrator
+  (`is_admin`) can change a member's ID but not another administrator's. Nobody changes their own
+  ID, and the owner cannot be demoted. Enforce this server-side, not only in the UI.
+- User-ID changes rely on `ON UPDATE CASCADE`; the target's existing sessions become invalid. Keep
+  the console warning accurate if that behavior changes.
+- Migrations are append-only. `002_names_and_admins.sql` adds the name index and tiers.
+
 ## Design rules
 
 - `DESIGN.md` is the design system. Read it before changing UI and cite the rule the change serves.

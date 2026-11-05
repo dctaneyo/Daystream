@@ -90,8 +90,12 @@ export function NoteEditor({
 }) {
   const session = useSession();
   const user = useMemo(
-    () => awarenessUser(session.me?.user.userId ?? "000000"),
-    [session.me?.user.userId],
+    () =>
+      awarenessUser(
+        session.me?.user.userId ?? "000000",
+        session.me?.user.displayName,
+      ),
+    [session.me?.user.userId, session.me?.user.displayName],
   );
 
   const [connection, setConnection] = useState<NoteSession | null>(null);

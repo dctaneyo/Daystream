@@ -1,0 +1,204 @@
+/* The admin console is its own page: paper, hairlines, no app chrome. */
+
+.ds-admin {
+  min-height: 100dvh;
+  max-width: 760px;
+  margin: 0 auto;
+  padding-bottom: calc(32px + var(--safe-bottom));
+  background: var(--bg-canvas);
+}
+
+.ds-admin-head {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  height: calc(var(--header-h) + var(--safe-top));
+  padding: var(--safe-top) 20px 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  background: var(--bg-canvas);
+  border-bottom: 1px solid var(--border-clean);
+}
+
+.ds-admin-head a {
+  text-decoration: none;
+  color: inherit;
+}
+
+.ds-admin-head-right {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.ds-admin-intro {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 30px 20px 18px;
+}
+
+.ds-admin-title {
+  margin: 0;
+  font-family: var(--font-note);
+  font-size: var(--type-xl);
+  font-weight: 400;
+  line-height: 1.1;
+  letter-spacing: -0.015em;
+}
+
+.ds-admin-sub {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.ds-admin-tools {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 0 20px 14px;
+}
+
+.ds-admin-tools .ds-input {
+  flex: 1;
+}
+
+.ds-admin-count {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.ds-admin-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--border-clean);
+}
+
+.ds-admin-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-clean);
+}
+
+.ds-admin-person {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.ds-admin-name {
+  font-family: var(--font-note);
+  font-size: 17px;
+  line-height: 1.3;
+}
+
+.ds-admin-meta {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.ds-admin-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.ds-admin-edit {
+  flex-basis: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 0 2px;
+}
+
+.ds-admin-hint,
+.ds-admin-empty,
+.ds-admin-foot {
+  margin: 0;
+  max-width: 56ch;
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+
+.ds-admin-empty {
+  padding: 28px 20px;
+  font-family: var(--font-note);
+  font-size: 16px;
+  font-style: italic;
+}
+
+.ds-admin-foot {
+  padding: 24px 20px 0;
+  border-top: 1px solid var(--border-clean);
+  margin-top: 24px;
+}
+
+.ds-admin-gate {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  padding: 20px;
+  background: var(--bg-canvas);
+  text-align: center;
+}
+
+.ds-admin-gate-line {
+  margin: 0;
+  max-width: 34ch;
+  font-family: var(--font-note);
+  font-size: 17px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.ds-admin-gate a {
+  text-decoration: none;
+}
+
+@media (min-width: 720px) {
+  .ds-admin {
+    border-left: 1px solid var(--border-clean);
+    border-right: 1px solid var(--border-clean);
+  }
+
+  .ds-admin-head {
+    padding-left: 28px;
+    padding-right: 28px;
+  }
+
+  .ds-admin-intro,
+  .ds-admin-row {
+    padding-left: 28px;
+    padding-right: 28px;
+  }
+
+  .ds-admin-tools {
+    padding-left: 28px;
+    padding-right: 28px;
+  }
+
+  .ds-admin-foot {
+    padding-left: 28px;
+    padding-right: 28px;
+  }
+}

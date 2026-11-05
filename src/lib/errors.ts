@@ -27,6 +27,22 @@ export function authMessage(error: unknown): string {
         return "Pick a date first.";
       case "template_not_found":
         return "That template is gone.";
+      case "invalid_name":
+        return "Use a real name: letters, spaces, hyphens or apostrophes.";
+      case "name_taken":
+        return "That name is already in use. Add a surname or middle initial.";
+      case "invalid_id":
+        return "Use a six-digit ID.";
+      case "id_taken":
+        return "That ID is already taken.";
+      case "same_id":
+        return "That is already their ID.";
+      case "cannot_change_self":
+        return "You cannot change your own ID.";
+      case "cannot_change_owner":
+        return "The owner account cannot be changed here.";
+      case "invalid_role":
+        return "Choose admin or member.";
       default:
         return "Something didn't go through. Try again.";
     }

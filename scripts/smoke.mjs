@@ -1,4 +1,5 @@
 import { HocuspocusProvider } from "@hocuspocus/provider";
+import pg from "pg";
 import * as Y from "yjs";
 
 const base = process.env.SMOKE_URL ?? "http://127.0.0.1:3000";
@@ -19,6 +20,29 @@ function check(name, condition, detail = "") {
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
+}
+
+// Unique, real-shaped names keep repeated smoke runs from colliding on the
+// display-name index. Each run registers fresh accounts anyway.
+const suffix = Array.from({ length: 6 }, () =>
+  String.fromCharCode(97 + Math.floor(Math.random() * 26)),
+).join("");
+const nameA = `Ada Lovelace ${suffix}`;
+const nameB = `Grace Hopper ${suffix}`;
+const nameC = `Alan Turing ${suffix}`;
+
+async function makeOwner(userId) {
+  assert(process.env.DATABASE_URL, "DATABASE_URL is required for admin smoke checks");
+  const client = new pg.Client({ connectionString: process.env.DATABASE_URL });
+  await client.connect();
+  try {
+    await client.query(
+      "UPDATE users SET is_admin = TRUE, is_super_admin = TRUE WHERE user_id = $1",
+      [userId],
+    );
+  } finally {
+    await client.end();
+  }
 }
 
 function localDateKey() {
@@ -114,15 +138,48 @@ try {
 
   const registered = await call(jarA, "/auth/register", {
     method: "POST",
-    body: { pin: "482913" },
+    body: { pin: "482913", displayName: nameA },
   });
   assert(registered.status === 201, `register returned ${registered.status}`);
   const userIdA = registered.data.user.userId;
   const workspaceId = registered.data.workspace.id;
   check("account created with a six-digit ID", /^\d{6}$/.test(userIdA), userIdA);
+  check(
+    "account carries its real display name",
+    registered.data.user.displayName === nameA,
+  );
+
+  const duplicateName = await call(new Jar(), "/auth/register", {
+    method: "POST",
+    body: { pin: "111111", displayName: nameA.toUpperCase() },
+  });
+  check(
+    "display names are unique regardless of case",
+    duplicateName.status === 409 && duplicateName.data.error === "name_taken",
+  );
+
+  const invalidName = await call(new Jar(), "/auth/register", {
+    method: "POST",
+    body: { pin: "111111", displayName: "Ada 123" },
+  });
+  check(
+    "display names reject handles and digits",
+    invalidName.status === 400 && invalidName.data.error === "invalid_name",
+  );
 
   const me = await call(jarA, "/me");
   check("session cookie authenticates /me", me.status === 200 && me.data.user.userId === userIdA);
+
+  await makeOwner(userIdA);
+  const ownerMe = await call(jarA, "/me");
+  check("owner rights reach the session", ownerMe.data.user.isSuperAdmin === true);
+  const ownerList = await call(jarA, "/admin/users");
+  check(
+    "the console lists accounts for the owner",
+    ownerList.status === 200 &&
+      ownerList.data.viewer.isSuperAdmin === true &&
+      ownerList.data.users.some((user) => user.userId === userIdA),
+  );
 
   const created = await call(jarA, "/notes", {
     method: "POST",
@@ -207,7 +264,7 @@ try {
 
   const registeredB = await call(new Jar(), "/auth/register", {
     method: "POST",
-    body: { pin: "913847" },
+    body: { pin: "913847", displayName: nameB },
   });
   assert(registeredB.status === 201, "second account failed");
   const userIdB = registeredB.data.user.userId;
@@ -218,11 +275,76 @@ try {
   });
   assert(loginB.status === 200, "second account login failed");
 
+  const bDenied = await call(jarB, "/admin/users");
+  check("ordinary members cannot open the console", bDenied.status === 403);
+
+  const promoted = await call(jarA, `/admin/users/${userIdB}/admin`, {
+    method: "PATCH",
+    body: { isAdmin: true },
+  });
+  check(
+    "the owner can promote an administrator",
+    promoted.status === 200 && promoted.data.user.isAdmin === true,
+  );
+  const bMeAdmin = await call(jarB, "/me");
+  check(
+    "promotion applies without a new token",
+    bMeAdmin.data.user.isAdmin === true && bMeAdmin.data.user.isSuperAdmin === false,
+  );
+  const bList = await call(jarB, "/admin/users");
+  check("administrators can list accounts", bList.status === 200);
+
+  const bCannotPromote = await call(jarB, `/admin/users/${userIdA}/admin`, {
+    method: "PATCH",
+    body: { isAdmin: true },
+  });
+  check(
+    "administrators cannot change administrator access",
+    bCannotPromote.status === 403,
+  );
+
+  const bCannotEditAdmin = await call(jarB, `/admin/users/${userIdA}/id`, {
+    method: "PATCH",
+    body: { userId: "999998" },
+  });
+  check(
+    "administrators cannot change another administrator's ID",
+    bCannotEditAdmin.status === 403,
+  );
+
+  const demoted = await call(jarA, `/admin/users/${userIdB}/admin`, {
+    method: "PATCH",
+    body: { isAdmin: false },
+  });
+  check(
+    "the owner can demote an administrator",
+    demoted.status === 200 && demoted.data.user.isAdmin === false,
+  );
+  const bAfterDemote = await call(jarB, "/admin/users");
+  check("demotion applies immediately", bAfterDemote.status === 403);
+
+  const ownerDemote = await call(jarA, `/admin/users/${userIdA}/admin`, {
+    method: "PATCH",
+    body: { isAdmin: false },
+  });
+  check("the owner cannot be demoted", ownerDemote.status === 403);
+
+  const selfId = await call(jarA, `/admin/users/${userIdA}/id`, {
+    method: "PATCH",
+    body: { userId: "999997" },
+  });
+  check("an administrator cannot change their own ID", selfId.status === 403);
+
   const invite = await call(jarA, `/workspaces/${workspaceId}/members`, {
     method: "POST",
-    body: { userId: userIdB, role: "editor" },
+    body: { identifier: nameB, role: "editor" },
   });
-  check("workspace invite succeeds", invite.status === 200 && invite.data.userId === userIdB);
+  check(
+    "a workspace invite resolves a display name",
+    invite.status === 200 &&
+      invite.data.userId === userIdB &&
+      invite.data.displayName === nameB,
+  );
 
   const tokenA2 = await call(jarA, `/collab/token?noteId=${noteId}`);
   const tokenB = await call(jarB, `/collab/token?noteId=${noteId}`);
@@ -276,9 +398,10 @@ try {
   const outsiderJar = new Jar();
   const outsider = await call(outsiderJar, "/auth/register", {
     method: "POST",
-    body: { pin: "556677" },
+    body: { pin: "556677", displayName: nameC },
   });
   assert(outsider.status === 201, "third account failed");
+  const userIdC = outsider.data.user.userId;
   const outsiderToken = await call(outsiderJar, `/collab/token?noteId=${noteId}`);
   check("outsiders cannot mint a token for a note", outsiderToken.status === 404);
   const outsiderPresence = await call(
@@ -310,6 +433,53 @@ try {
   const loggedOut = await call(jarB, "/auth/logout", { method: "POST" });
   const afterLogout = await call(jarB, "/me");
   check("logout clears the session", loggedOut.status === 204 && afterLogout.status === 401);
+
+  const takenId = await call(jarA, `/admin/users/${userIdC}/id`, {
+    method: "PATCH",
+    body: { userId: userIdB },
+  });
+  check(
+    "an ID already in use cannot be assigned",
+    takenId.status === 409 && takenId.data.error === "id_taken",
+  );
+
+  const jarB2 = new Jar();
+  const loginB2 = await call(jarB2, "/auth/login", {
+    method: "POST",
+    body: { userId: userIdB, pin: "913847" },
+  });
+  assert(loginB2.status === 200, "second account could not sign in before the ID change");
+
+  let nextIdB = "";
+  do {
+    nextIdB = String(100000 + Math.floor(Math.random() * 900000));
+  } while (nextIdB === userIdA || nextIdB === userIdB || nextIdB === userIdC);
+
+  const changedId = await call(jarA, `/admin/users/${userIdB}/id`, {
+    method: "PATCH",
+    body: { userId: nextIdB },
+  });
+  check(
+    "the owner can change a member's ID",
+    changedId.status === 200 && changedId.data.user.userId === nextIdB,
+  );
+
+  const staleId = await call(jarB2, "/me");
+  check("the previous ID stops authenticating", staleId.status === 401);
+
+  const jarB3 = new Jar();
+  const relogin = await call(jarB3, "/auth/login", {
+    method: "POST",
+    body: { userId: nextIdB, pin: "913847" },
+  });
+  check("the new ID signs in", relogin.status === 200);
+
+  const workspacesAfterRename = await call(jarB3, "/workspaces");
+  check(
+    "an ID change keeps workspace membership",
+    workspacesAfterRename.status === 200 &&
+      workspacesAfterRename.data.some((workspace) => workspace.id === workspaceId),
+  );
 
   providerA.destroy();
   providerB.destroy();

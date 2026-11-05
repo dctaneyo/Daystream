@@ -159,10 +159,34 @@ export async function dummyPinHash() {
 
 export async function findUser(userId) {
   const { rows } = await query(
-    "SELECT user_id, pin_hash, is_admin FROM users WHERE user_id = $1",
+    `SELECT user_id, pin_hash, display_name, is_admin, is_super_admin
+       FROM users WHERE user_id = $1`,
     [userId],
   );
   return rows[0] ?? null;
+}
+
+/**
+ * Admin rights are re-read from Postgres on every management request, so a
+ * promotion or demotion takes effect without waiting for a token refresh.
+ */
+export async function requireAdmin(req, res, next) {
+  const user = await findUser(req.auth.userId);
+  if (!user?.is_admin) {
+    res.status(403).json({ error: "forbidden" });
+    return;
+  }
+  req.auth.isAdmin = true;
+  req.auth.isSuperAdmin = user.is_super_admin === true;
+  next();
+}
+
+export function requireSuperAdmin(req, res, next) {
+  if (req.auth?.isSuperAdmin !== true) {
+    res.status(403).json({ error: "forbidden" });
+    return;
+  }
+  next();
 }
 
 /*

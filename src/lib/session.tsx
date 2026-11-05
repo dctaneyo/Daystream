@@ -33,7 +33,7 @@ export interface SessionValue {
   busy: boolean;
   message: string;
   signIn(userId: string, pin: string): Promise<void>;
-  register(pin: string): Promise<{ userId: string }>;
+  register(displayName: string, pin: string): Promise<{ userId: string }>;
   enter(): void;
   unlock(pin: string): Promise<void>;
   lock(): void;
@@ -160,13 +160,13 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const register = useCallback(async (pin: string) => {
+  const register = useCallback(async (displayName: string, pin: string) => {
     setBusy(true);
     setMessage("");
     try {
       const created = await api<{ user: { userId: string } }>("/auth/register", {
         method: "POST",
-        json: { pin },
+        json: { displayName, pin },
       });
       const next = await api<Me>("/me");
       await rememberPin(created.user.userId, pin);

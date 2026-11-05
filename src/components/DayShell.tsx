@@ -101,7 +101,10 @@ export function DayShell() {
     let opened: PresenceSession | null = null;
     let detach: (() => void) | null = null;
 
-    openPresenceSession(workspaceId, awarenessUser(me.user.userId))
+    openPresenceSession(
+      workspaceId,
+      awarenessUser(me.user.userId, me.user.displayName),
+    )
       .then((next) => {
         if (cancelled) {
           next.destroy();

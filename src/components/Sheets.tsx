@@ -102,11 +102,11 @@ export function SettingsSheet({
     setBusy(true);
     setInviteNote("");
     try {
-      await api(`/workspaces/${workspace.id}/members`, {
+      const added = await api<Member>(`/workspaces/${workspace.id}/members`, {
         method: "POST",
-        json: { userId: inviteId, role: inviteRole },
+        json: { identifier: inviteId.trim(), role: inviteRole },
       });
-      setInviteNote(`${inviteId} now has access.`);
+      setInviteNote(`${added.displayName} now has access.`);
       setInviteId("");
       onChanged();
     } catch (error) {
@@ -169,8 +169,11 @@ export function SettingsSheet({
       </section>
 
       <section className="ds-section">
-        <h3 className="ds-eyebrow">Your ID</h3>
-        <p className="ds-settings-id">{userId}</p>
+        <h3 className="ds-eyebrow">You</h3>
+        <div>
+          <p className="ds-settings-name">{session.me?.user.displayName}</p>
+          <p className="ds-settings-id">{userId}</p>
+        </div>
         <div className="ds-choice-row">
           <button type="button" className="ds-text-btn" onClick={() => void copyId()}>
             {copied ? "Copied" : "Copy ID"}
@@ -178,6 +181,11 @@ export function SettingsSheet({
           <button type="button" className="ds-text-btn" onClick={session.lock}>
             Lock now
           </button>
+          {session.me?.user.isAdmin ? (
+            <a className="ds-text-btn" href="/admin">
+              Admin console
+            </a>
+          ) : null}
           <button
             type="button"
             className="ds-text-btn ds-danger"
@@ -213,9 +221,12 @@ export function SettingsSheet({
         <ul className="ds-members">
           {members.map((member) => (
             <li key={member.userId} className="ds-member">
-              <span className="ds-member-id">
-                {member.userId}
-                {member.userId === userId ? " (you)" : ""}
+              <span className="ds-member-person">
+                <span className="ds-member-name">{member.displayName}</span>
+                <span className="ds-member-id">
+                  {member.userId}
+                  {member.userId === userId ? " (you)" : ""}
+                </span>
               </span>
               <span className="ds-member-role">{member.role}</span>
             </li>
@@ -224,25 +235,22 @@ export function SettingsSheet({
 
         <form className="ds-form" onSubmit={invite}>
           <label className="ds-label" htmlFor="invite-id">
-            Add someone by ID
+            Add someone by name or ID
           </label>
           <div className="ds-form-row">
             <input
               id="invite-id"
               className="ds-input"
-              inputMode="numeric"
               autoComplete="off"
-              maxLength={6}
-              placeholder="6 digits"
+              maxLength={60}
+              placeholder="Ada Lovelace or 663520"
               value={inviteId}
-              onChange={(event) =>
-                setInviteId(event.target.value.replace(/\D/g, "").slice(0, 6))
-              }
+              onChange={(event) => setInviteId(event.target.value)}
             />
             <button
               type="submit"
               className="ds-text-btn"
-              disabled={busy || inviteId.length !== 6}
+              disabled={busy || !workspace || inviteId.trim().length < 2}
             >
               Add
             </button>
